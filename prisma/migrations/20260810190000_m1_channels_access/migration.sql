@@ -1,77 +1,69 @@
+CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'DISABLED');
 CREATE TYPE "ChannelMode" AS ENUM ('MODERATED', 'AUTO');
-CREATE TYPE "ChannelMemberRole" AS ENUM ('OWNER', 'EDITOR', 'VIEWER');
-CREATE TYPE "CredentialProvider" AS ENUM ('TELEGRAM');
+CREATE TYPE "ChannelStatus" AS ENUM ('ACTIVE', 'PAUSED', 'ARCHIVED');
+CREATE TYPE "ChannelMemberRole" AS ENUM ('OWNER', 'EDITOR', 'OPERATOR', 'VIEWER');
+CREATE TYPE "CredentialProvider" AS ENUM ('TELEGRAM_BOT');
 
-CREATE TABLE "app_user" (
-  "id" UUID NOT NULL,
-  "external_id" TEXT NOT NULL,
-  "display_name" TEXT NOT NULL,
+CREATE TABLE "users" (
+  "id" UUID NOT NULL, "email" TEXT NOT NULL, "display_name" TEXT NOT NULL,
+  "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMP(3) NOT NULL,
-  CONSTRAINT "app_user_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "app_user_external_id_key" ON "app_user"("external_id");
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+CREATE INDEX "users_status_idx" ON "users"("status");
 
-CREATE TABLE "channel" (
-  "id" UUID NOT NULL,
-  "telegram_chat_id" TEXT NOT NULL,
-  "title" TEXT NOT NULL,
-  "username" TEXT,
-  "language" TEXT NOT NULL DEFAULT 'en',
-  "mode" "ChannelMode" NOT NULL DEFAULT 'MODERATED',
-  "active" BOOLEAN NOT NULL DEFAULT true,
+CREATE TABLE "channels" (
+  "id" UUID NOT NULL, "telegram_id" TEXT NOT NULL, "username" TEXT,
+  "title" TEXT NOT NULL, "language" TEXT NOT NULL DEFAULT 'en',
+  "status" "ChannelStatus" NOT NULL DEFAULT 'ACTIVE',
+  "created_by_id" UUID NOT NULL,
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMP(3) NOT NULL,
-  CONSTRAINT "channel_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "channels_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "channel_telegram_chat_id_key" ON "channel"("telegram_chat_id");
-CREATE INDEX "channel_active_created_at_idx" ON "channel"("active", "created_at");
-
-CREATE TABLE "channel_member" (
-  "id" UUID NOT NULL,
-  "channel_id" UUID NOT NULL,
-  "user_id" UUID NOT NULL,
-  "role" "ChannelMemberRole" NOT NULL,
-  "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" TIMESTAMP(3) NOT NULL,
-  CONSTRAINT "channel_member_pkey" PRIMARY KEY ("id")
-);
-CREATE UNIQUE INDEX "channel_member_channel_id_user_id_key" ON "channel_member"("channel_id", "user_id");
-CREATE INDEX "channel_member_user_id_role_idx" ON "channel_member"("user_id", "role");
-ALTER TABLE "channel_member" ADD CONSTRAINT "channel_member_channel_id_fkey" FOREIGN KEY ("channel_id") REFERENCES "channel"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "channel_member" ADD CONSTRAINT "channel_member_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "app_user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+CREATE UNIQUE INDEX "channels_telegram_id_key" ON "channels"("telegram_id");
+CREATE INDEX "channels_status_created_at_idx" ON "channels"("status", "created_at");
 
 CREATE TABLE "channel_settings" (
-  "id" UUID NOT NULL,
-  "channel_id" UUID NOT NULL,
-  "min_interest" INTEGER NOT NULL DEFAULT 6,
-  "min_quality" INTEGER NOT NULL DEFAULT 6,
-  "min_evidence" INTEGER NOT NULL DEFAULT 7,
-  "min_originality" INTEGER NOT NULL DEFAULT 5,
-  "research_max_level" INTEGER NOT NULL DEFAULT 2,
-  "forbidden_topics" JSONB NOT NULL DEFAULT '[]',
-  "legal_restrictions" JSONB NOT NULL DEFAULT '[]',
-  "blacklist" JSONB NOT NULL DEFAULT '[]',
-  "hook_style" TEXT NOT NULL DEFAULT 'restrained',
-  "max_length" INTEGER NOT NULL DEFAULT 4000,
-  "emoji_policy" BOOLEAN NOT NULL DEFAULT false,
+  "id" UUID NOT NULL, "channel_id" UUID NOT NULL, "mode" "ChannelMode" NOT NULL DEFAULT 'MODERATED',
+  "timezone" TEXT NOT NULL DEFAULT 'UTC', "min_interest" INTEGER NOT NULL DEFAULT 6,
+  "min_quality" INTEGER NOT NULL DEFAULT 6, "min_evidence" INTEGER NOT NULL DEFAULT 7,
+  "min_originality" INTEGER NOT NULL DEFAULT 5, "research_max_level" INTEGER NOT NULL DEFAULT 2,
+  "min_length" INTEGER, "max_length" INTEGER, "emoji_enabled" BOOLEAN NOT NULL DEFAULT false,
+  "forbidden_topics" JSONB NOT NULL DEFAULT '[]', "legal_restrictions" JSONB NOT NULL DEFAULT '[]',
+  "source_priorities" JSONB NOT NULL DEFAULT '{}', "style_config" JSONB NOT NULL DEFAULT '{}',
   "version" INTEGER NOT NULL DEFAULT 1,
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "channel_settings_pkey" PRIMARY KEY ("id")
 );
 CREATE UNIQUE INDEX "channel_settings_channel_id_key" ON "channel_settings"("channel_id");
-ALTER TABLE "channel_settings" ADD CONSTRAINT "channel_settings_channel_id_fkey" FOREIGN KEY ("channel_id") REFERENCES "channel"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
-CREATE TABLE "credential_reference" (
-  "id" UUID NOT NULL,
-  "channel_id" UUID NOT NULL,
-  "provider" "CredentialProvider" NOT NULL,
-  "reference" TEXT NOT NULL,
-  "active" BOOLEAN NOT NULL DEFAULT true,
+CREATE TABLE "channel_members" (
+  "id" UUID NOT NULL, "channel_id" UUID NOT NULL, "user_id" UUID NOT NULL,
+  "role" "ChannelMemberRole" NOT NULL,
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMP(3) NOT NULL,
-  CONSTRAINT "credential_reference_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "channel_members_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "credential_reference_channel_id_provider_key" ON "credential_reference"("channel_id", "provider");
-ALTER TABLE "credential_reference" ADD CONSTRAINT "credential_reference_channel_id_fkey" FOREIGN KEY ("channel_id") REFERENCES "channel"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+CREATE UNIQUE INDEX "channel_members_channel_id_user_id_key" ON "channel_members"("channel_id", "user_id");
+CREATE INDEX "channel_members_user_id_role_idx" ON "channel_members"("user_id", "role");
+
+CREATE TABLE "source_credential_refs" (
+  "id" UUID NOT NULL, "provider" "CredentialProvider" NOT NULL, "secret_ref" TEXT NOT NULL,
+  "channel_id" UUID, "created_by_id" UUID NOT NULL,
+  "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "source_credential_refs_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX "source_credential_refs_channel_id_key" ON "source_credential_refs"("channel_id");
+CREATE INDEX "source_credential_refs_provider_idx" ON "source_credential_refs"("provider");
+
+ALTER TABLE "channels" ADD CONSTRAINT "channels_created_by_id_fkey" FOREIGN KEY ("created_by_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "channel_settings" ADD CONSTRAINT "channel_settings_channel_id_fkey" FOREIGN KEY ("channel_id") REFERENCES "channels"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "channel_members" ADD CONSTRAINT "channel_members_channel_id_fkey" FOREIGN KEY ("channel_id") REFERENCES "channels"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "channel_members" ADD CONSTRAINT "channel_members_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "source_credential_refs" ADD CONSTRAINT "source_credential_refs_channel_id_fkey" FOREIGN KEY ("channel_id") REFERENCES "channels"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "source_credential_refs" ADD CONSTRAINT "source_credential_refs_created_by_id_fkey" FOREIGN KEY ("created_by_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
