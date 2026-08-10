@@ -1,0 +1,52 @@
+# TEMPORARY: remove after diagnosis.
+name: M1 diagnostics
+on:
+  pull_request:
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://atmp:atmp@localhost:5432/atmp_test?schema=public
+      REDIS_URL: redis://localhost:6379
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env: { POSTGRES_USER: atmp, POSTGRES_PASSWORD: atmp, POSTGRES_DB: atmp_test }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U atmp -d atmp_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20.18.0' }
+      - name: Diagnose
+        continue-on-error: true
+        run: |
+          exec >/tmp/m1.log 2>&1
+          run(){ echo "=== $1 ==="; shift; "$@"; echo "EXIT:$?"; }
+          node --version; pnpm --version
+          run install pnpm install --no-frozen-lockfile
+          run build pnpm build
+          run lint pnpm lint
+          run typecheck pnpm typecheck
+          run unit pnpm test
+          run migrate pnpm prisma:deploy
+          run integration pnpm test:int
+      - name: Report
+        if: always()
+        env: { GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        run: |
+          { echo '### M1 diagnostics'; echo '```text'; tail -c 60000 /tmp/m1.log; echo '```'; } >/tmp/body.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/body.md
