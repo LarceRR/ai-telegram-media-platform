@@ -2,12 +2,6 @@ import { Injectable, type NestMiddleware } from '@nestjs/common';
 import { CORRELATION_ID_HEADER, resolveCorrelationId } from '@atmp/shared';
 import type { NextFunction, Request, Response } from 'express';
 
-declare module 'express' {
-  interface Request {
-    correlationId?: string;
-  }
-}
-
 /** Every request gets a correlation ID, echoed back for client-side tracing. */
 @Injectable()
 export class CorrelationIdMiddleware implements NestMiddleware {

@@ -25,13 +25,20 @@ One TypeScript codebase, deployed as multiple processes.
 - Shared, transport-agnostic code lives in `packages/*`
   (`contracts`, `config`, `shared`, `database`).
 
-Dependency direction is enforced, not merely documented:
+Dependency direction is enforced by ESLint `no-restricted-imports`, not by
+convention alone:
 
-- Domain and application code never imports NestJS HTTP, Prisma, BullMQ,
-  ioredis, the Telegram SDK or any provider SDK. An ESLint
-  `no-restricted-imports` rule fails the build if it happens.
-- `@atmp/database` is the single import boundary for the generated Prisma client
-  and is infrastructure-only.
+- `domain/**` imports no persistence, no queues, no transport, no provider SDK.
+  It is pure rules and types.
+- `application/**` may reach persistence only through the `@atmp/database`
+  boundary and repository-style services. Importing `@prisma/client`, `bullmq`
+  or `ioredis` directly is a build failure.
+- `infrastructure/**` is the only place provider SDKs, the Prisma client and
+  queue clients may appear.
+
+`@atmp/database` deliberately contains no source of its own: `main` and `types`
+point at the generated Prisma client, so there is exactly one place where the
+client version and its lifecycle live.
 
 ## Consequences
 
@@ -44,8 +51,8 @@ Positive:
 
 Negative / cost:
 
-- Module boundaries depend on discipline plus lint rules; a careless import can
-  still create coupling that only review catches.
+- Module boundaries depend on lint rules plus review; the rules catch the
+  imports that matter, not every possible coupling.
 - `apps/worker` depends on the built output of `apps/api`, so build order
   matters (pnpm resolves it topologically).
 - A single codebase means a bad deploy affects both processes; independent
