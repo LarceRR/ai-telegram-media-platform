@@ -1,0 +1,51 @@
+name: CI diagnostics
+on:
+  pull_request:
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: atmp
+          POSTGRES_DB: atmp_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U atmp -d atmp_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://atmp@localhost:5432/atmp_test?schema=public
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20.18.0' }
+      - name: Diagnose
+        continue-on-error: true
+        run: |
+          exec >/tmp/ci.log 2>&1
+          run_step(){ echo "=== $1 ==="; shift; "$@"; echo "exit=$?"; }
+          node --version; pnpm --version
+          run_step install pnpm install --no-frozen-lockfile
+          run_step build pnpm build
+          run_step migrate pnpm prisma:deploy
+          run_step integration pnpm test:int
+          run_step lint pnpm lint
+          run_step typecheck pnpm typecheck
+          run_step unit pnpm test
+      - name: Report
+        if: always()
+        env: { GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        run: |
+          { echo '### CI diagnostics'; echo '```text'; tail -c 60000 /tmp/ci.log; echo '```'; } >/tmp/body.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/body.md
