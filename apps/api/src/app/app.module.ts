@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
+import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '../common/config.module';
 import { CorrelationIdMiddleware } from '../common/correlation-id.middleware';
-import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { InfrastructureModule } from '../infrastructure/infrastructure.module';
+import { ChannelsModule } from '../modules/channels/channels.module';
 import { SystemModule } from '../modules/system/system.module';
 
-/** HTTP entrypoint composition root. */
 @Module({
-  imports: [ConfigModule, InfrastructureModule, SystemModule],
+  imports: [ConfigModule, InfrastructureModule, SystemModule, ChannelsModule],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
