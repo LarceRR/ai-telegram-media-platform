@@ -1,71 +1,93 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, ChannelMemberRole, ChannelStatus, CredentialProvider, UserStatus } from '@atmp/database';
-import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { ChannelMemberRole } from '@atmp/database';
+import type { ChannelResponse } from '@atmp/contracts';
 import { AppError } from '@atmp/shared';
-import type { AddMemberDto, CreateChannelDto, CredentialRefDto, UpdateChannelDto, UpdateSettingsDto } from '../presentation/dto/channel.dto';
+import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { AuditLogService } from '../../system/application/audit-log.service';
+import type { AddMemberDto, CreateChannelDto, UpdateChannelDto, UpdateSettingsDto, UpsertCredentialReferenceDto } from '../presentation/dto/channel.dto';
 
-const roleRank: Record<ChannelMemberRole, number> = { OWNER: 4, EDITOR: 3, OPERATOR: 2, VIEWER: 1 };
+const PROTECTED_FIELDS = new Set(['minEvidence', 'forbiddenTopics', 'legalRestrictions', 'blacklist', 'researchMaxLevel']);
+const OPTIMIZABLE_FIELDS = new Set(['minInterest', 'minQuality', 'minOriginality', 'hookStyle', 'maxLength', 'emojiPolicy']);
 
 @Injectable()
 export class ChannelsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditLogService) {}
 
-  async create(actorId: string, dto: CreateChannelDto) {
-    const actor = await this.prisma.user.findUnique({ where: { id: actorId } });
-    if (!actor || actor.status !== UserStatus.ACTIVE) throw new AppError('UNAUTHORIZED', 'Active actor required');
-    return this.prisma.$transaction(async (tx) => {
-      const channel = await tx.channel.create({ data: { telegramId: dto.telegramId, username: dto.username, title: dto.title, language: dto.language ?? 'en', createdById: actorId, settings: { create: {} }, members: { create: { userId: actorId, role: ChannelMemberRole.OWNER } } }, include: { settings: true, members: { include: { user: { select: { id: true, email: true, displayName: true } } } } } });
-      await tx.auditLog.create({ data: { actorType: 'HUMAN', actorId, action: 'channel.created', entityType: 'Channel', entityId: channel.id, metadata: { telegramId: dto.telegramId } } });
-      return channel;
+  async create(actorExternalId: string, actorName: string, dto: CreateChannelDto): Promise<ChannelResponse> {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.upsert({ where: { externalId: actorExternalId }, update: { displayName: actorName }, create: { externalId: actorExternalId, displayName: actorName } });
+      const channel = await tx.channel.create({ data: { telegramChatId: dto.telegramChatId, title: dto.title, username: dto.username, language: dto.language ?? 'en', mode: dto.mode ?? 'MODERATED', members: { create: { userId: user.id, role: ChannelMemberRole.OWNER } }, settings: { create: {} } }, include: { settings: true, members: { where: { userId: user.id }, select: { role: true } }, credentials: { where: { active: true }, select: { id: true } } } });
+      return this.toResponse(channel, channel.members[0]?.role ?? ChannelMemberRole.OWNER);
     });
+    await this.audit.record({ actorType: 'HUMAN', actorId: actorExternalId, action: 'channel.created', entityType: 'Channel', entityId: result.id, metadata: { mode: result.mode } });
+    return result;
   }
 
-  async list(actorId: string) {
-    await this.requireUser(actorId);
-    return this.prisma.channel.findMany({ where: { members: { some: { userId: actorId } }, status: { not: ChannelStatus.ARCHIVED } }, include: { settings: true, members: { where: { userId: actorId }, select: { role: true } } }, orderBy: { createdAt: 'desc' } });
+  async list(actorExternalId: string): Promise<ChannelResponse[]> {
+    const user = await this.prisma.user.findUnique({ where: { externalId: actorExternalId } });
+    if (!user) return [];
+    const channels = await this.prisma.channel.findMany({ where: { members: { some: { userId: user.id } } }, orderBy: { createdAt: 'desc' }, include: { settings: true, members: { where: { userId: user.id }, select: { role: true } }, credentials: { where: { active: true }, select: { id: true } } } });
+    return channels.map((channel) => this.toResponse(channel, channel.members[0]?.role ?? ChannelMemberRole.VIEWER));
   }
 
-  async get(actorId: string, channelId: string) {
-    await this.requireRole(actorId, channelId, ChannelMemberRole.VIEWER);
-    return this.prisma.channel.findUniqueOrThrow({ where: { id: channelId }, include: { settings: true, members: { include: { user: { select: { id: true, email: true, displayName: true, status: true } } } }, credential: { select: { id: true, provider: true, secretRef: true, updatedAt: true } } } });
+  async get(actorExternalId: string, id: string): Promise<ChannelResponse> {
+    const channel = await this.authorizedChannel(actorExternalId, id, ChannelMemberRole.VIEWER);
+    return this.toResponse(channel, channel.members[0]?.role ?? ChannelMemberRole.VIEWER);
   }
 
-  async update(actorId: string, channelId: string, dto: UpdateChannelDto) {
-    await this.requireRole(actorId, channelId, ChannelMemberRole.EDITOR);
-    const channel = await this.prisma.channel.update({ where: { id: channelId }, data: dto as Prisma.ChannelUpdateInput });
-    await this.audit(actorId, 'channel.updated', 'Channel', channelId, dto);
+  async update(actorExternalId: string, id: string, dto: UpdateChannelDto): Promise<ChannelResponse> {
+    const current = await this.authorizedChannel(actorExternalId, id, ChannelMemberRole.EDITOR);
+    const data = {
+      ...(dto.title !== undefined ? { title: dto.title } : {}),
+      ...(dto.username !== undefined ? { username: dto.username } : {}),
+      ...(dto.language !== undefined ? { language: dto.language } : {}),
+      ...(dto.mode !== undefined ? { mode: dto.mode } : {}),
+      ...(dto.active !== undefined ? { active: dto.active } : {}),
+    };
+    const updated = await this.prisma.channel.update({ where: { id }, data, include: { settings: true, members: { where: { user: { externalId: actorExternalId } }, select: { role: true } }, credentials: { where: { active: true }, select: { id: true } } } });
+    await this.audit.record({ actorType: 'HUMAN', actorId: actorExternalId, action: 'channel.updated', entityType: 'Channel', entityId: id, metadata: { fields: Object.keys(data) } });
+    return this.toResponse(updated, current.members[0]?.role ?? ChannelMemberRole.EDITOR);
+  }
+
+  async updateSettings(actorExternalId: string, id: string, dto: UpdateSettingsDto): Promise<ChannelResponse> {
+    const current = await this.authorizedChannel(actorExternalId, id, ChannelMemberRole.EDITOR);
+    const role = current.members[0]?.role ?? ChannelMemberRole.VIEWER;
+    const changed = Object.keys(dto).filter((key) => key !== 'expectedVersion');
+    if (role !== ChannelMemberRole.OWNER && changed.some((key) => PROTECTED_FIELDS.has(key))) throw new AppError('FORBIDDEN', 'Only channel owners can change protected settings');
+    if (changed.some((key) => !PROTECTED_FIELDS.has(key) && !OPTIMIZABLE_FIELDS.has(key))) throw new AppError('VALIDATION', 'Unknown settings field');
+    const { expectedVersion: _expectedVersion, ...settingsData } = dto;
+    const settings = await this.prisma.channelSettings.updateMany({ where: { channelId: id, version: dto.expectedVersion }, data: { ...settingsData, version: { increment: 1 } } });
+    if (settings.count !== 1) throw new AppError('CONFLICT', 'Settings version is stale; reload before updating');
+    const updated = await this.prisma.channel.findUniqueOrThrow({ where: { id }, include: { settings: true, members: { where: { user: { externalId: actorExternalId } }, select: { role: true } }, credentials: { where: { active: true }, select: { id: true } } } });
+    await this.audit.record({ actorType: 'HUMAN', actorId: actorExternalId, action: 'channel.settings.updated', entityType: 'ChannelSettings', entityId: id, metadata: { fields: changed, version: dto.expectedVersion + 1 } });
+    return this.toResponse(updated, role);
+  }
+
+  async addMember(actorExternalId: string, id: string, dto: AddMemberDto): Promise<void> {
+    const channel = await this.authorizedChannel(actorExternalId, id, ChannelMemberRole.OWNER);
+    const user = await this.prisma.user.upsert({ where: { externalId: dto.externalId }, update: { displayName: dto.displayName }, create: { externalId: dto.externalId, displayName: dto.displayName } });
+    await this.prisma.channelMember.upsert({ where: { channelId_userId: { channelId: id, userId: user.id } }, update: { role: dto.role }, create: { channelId: id, userId: user.id, role: dto.role } });
+    await this.audit.record({ actorType: 'HUMAN', actorId: actorExternalId, action: 'channel.member.upserted', entityType: 'ChannelMember', entityId: channel.id, metadata: { memberExternalId: dto.externalId, role: dto.role } });
+  }
+
+  async upsertCredential(actorExternalId: string, id: string, dto: UpsertCredentialReferenceDto): Promise<void> {
+    await this.authorizedChannel(actorExternalId, id, ChannelMemberRole.OWNER);
+    if (/token|secret|password|api[_-]?key|bot\d*:/i.test(dto.reference)) throw new AppError('VALIDATION', 'Store a secret-manager reference, never a credential value');
+    await this.prisma.credentialReference.upsert({ where: { channelId_provider: { channelId: id, provider: dto.provider } }, update: { reference: dto.reference, active: true }, create: { channelId: id, provider: dto.provider, reference: dto.reference } });
+    await this.audit.record({ actorType: 'HUMAN', actorId: actorExternalId, action: 'channel.credential_reference.updated', entityType: 'CredentialReference', entityId: id, metadata: { provider: dto.provider } });
+  }
+
+  private async authorizedChannel(actorExternalId: string, id: string, minimum: ChannelMemberRole) {
+    const channel = await this.prisma.channel.findFirst({ where: { id, members: { some: { user: { externalId: actorExternalId } } } }, include: { settings: true, members: { where: { user: { externalId: actorExternalId } }, select: { role: true } }, credentials: { where: { active: true }, select: { id: true } } } });
+    if (!channel) throw new AppError('NOT_FOUND', 'Channel not found');
+    const role = channel.members[0]?.role;
+    const rank = { VIEWER: 0, EDITOR: 1, OWNER: 2 } as const;
+    if (!role || rank[role] < rank[minimum]) throw new AppError('FORBIDDEN', 'Insufficient channel permissions');
     return channel;
   }
 
-  async updateSettings(actorId: string, channelId: string, dto: UpdateSettingsDto) {
-    await this.requireRole(actorId, channelId, ChannelMemberRole.OWNER);
-    const current = await this.prisma.channelSettings.findUnique({ where: { channelId } });
-    if (!current) throw new AppError('NOT_FOUND', 'Channel settings not found');
-    if (current.version !== dto.expectedVersion) throw new AppError('CONFLICT', 'Settings version is stale', { expectedVersion: current.version });
-    const { expectedVersion: _expectedVersion, ...changes } = dto;
-    if (changes.minLength !== undefined && changes.maxLength !== undefined && changes.minLength > changes.maxLength) throw new AppError('VALIDATION', 'minLength cannot exceed maxLength');
-    const updated = await this.prisma.channelSettings.update({ where: { channelId }, data: { ...changes, version: { increment: 1 }, forbiddenTopics: changes.forbiddenTopics as Prisma.InputJsonValue, legalRestrictions: changes.legalRestrictions as Prisma.InputJsonValue, sourcePriorities: changes.sourcePriorities as Prisma.InputJsonValue, styleConfig: changes.styleConfig as Prisma.InputJsonValue } });
-    await this.audit(actorId, 'channel.settings.updated', 'ChannelSettings', updated.id, { expectedVersion: dto.expectedVersion, newVersion: updated.version });
-    return updated;
+  private toResponse(channel: any, role: ChannelMemberRole): ChannelResponse {
+    if (!channel.settings) throw new AppError('INTERNAL', 'Channel settings are missing');
+    return { id: channel.id, telegramChatId: channel.telegramChatId, title: channel.title, username: channel.username, language: channel.language, mode: channel.mode, active: channel.active, role, settings: { minInterest: channel.settings.minInterest, minQuality: channel.settings.minQuality, minEvidence: channel.settings.minEvidence, minOriginality: channel.settings.minOriginality, researchMaxLevel: channel.settings.researchMaxLevel, forbiddenTopics: channel.settings.forbiddenTopics as string[], legalRestrictions: channel.settings.legalRestrictions as string[], blacklist: channel.settings.blacklist as string[], hookStyle: channel.settings.hookStyle, maxLength: channel.settings.maxLength, emojiPolicy: channel.settings.emojiPolicy, version: channel.settings.version }, telegramCredentialConfigured: channel.credentials.length > 0, createdAt: channel.createdAt.toISOString(), updatedAt: channel.updatedAt.toISOString() };
   }
-
-  async addMember(actorId: string, channelId: string, dto: AddMemberDto) {
-    await this.requireRole(actorId, channelId, ChannelMemberRole.OWNER);
-    const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
-    if (!user || user.status !== UserStatus.ACTIVE) throw new AppError('NOT_FOUND', 'Active user not found');
-    const member = await this.prisma.channelMember.upsert({ where: { channelId_userId: { channelId, userId: dto.userId } }, create: { channelId, userId: dto.userId, role: dto.role }, update: { role: dto.role }, include: { user: { select: { id: true, email: true, displayName: true } } } });
-    await this.audit(actorId, 'channel.member.upserted', 'ChannelMember', member.id, { userId: dto.userId, role: dto.role });
-    return member;
-  }
-
-  async setCredential(actorId: string, channelId: string, dto: CredentialRefDto) {
-    await this.requireRole(actorId, channelId, ChannelMemberRole.OWNER);
-    const ref = await this.prisma.sourceCredentialRef.upsert({ where: { channelId }, create: { channelId, provider: CredentialProvider.TELEGRAM_BOT, secretRef: dto.secretRef, createdById: actorId }, update: { secretRef: dto.secretRef } });
-    await this.audit(actorId, 'channel.credential_ref.updated', 'SourceCredentialRef', ref.id, { provider: ref.provider });
-    return { id: ref.id, provider: ref.provider, secretRef: ref.secretRef, updatedAt: ref.updatedAt };
-  }
-
-  private async requireUser(actorId: string) { const user = await this.prisma.user.findUnique({ where: { id: actorId } }); if (!user || user.status !== UserStatus.ACTIVE) throw new AppError('UNAUTHORIZED', 'Active actor required'); return user; }
-  private async requireRole(actorId: string, channelId: string, minimum: ChannelMemberRole) { await this.requireUser(actorId); const member = await this.prisma.channelMember.findUnique({ where: { channelId_userId: { channelId, userId: actorId } } }); if (!member || roleRank[member.role] < roleRank[minimum]) throw new AppError('FORBIDDEN', 'Insufficient channel role'); return member; }
-  private async audit(actorId: string, action: string, entityType: string, entityId: string, metadata: Prisma.InputJsonValue) { await this.prisma.auditLog.create({ data: { actorType: 'HUMAN', actorId, action, entityType, entityId, metadata } }); }
 }
