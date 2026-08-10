@@ -1,0 +1,37 @@
+name: M1 report
+on: { pull_request }
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, pull-requests: write }
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env: { POSTGRES_USER: ci, POSTGRES_PASSWORD: ${{ github.run_id }}, POSTGRES_DB: test }
+        ports: ['5432:5432']
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env: { NODE_ENV: test, DATABASE_URL: postgresql://ci:${{ github.run_id }}@localhost:5432/test?schema=public, REDIS_URL: redis://localhost:6379 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20.18.0' }
+      - name: Run
+        continue-on-error: true
+        run: |
+          exec >/tmp/m1 2>&1
+          pnpm install --no-frozen-lockfile || true
+          pnpm build || true
+          pnpm prisma:deploy || true
+          pnpm lint || true
+          pnpm typecheck || true
+          pnpm test || true
+          pnpm test:int || true
+      - name: Comment
+        if: always()
+        env: { GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        run: |
+          { echo '### M1 report'; echo '```text'; tail -c 55000 /tmp/m1; echo '```'; } >/tmp/body
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/body
