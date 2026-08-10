@@ -1,33 +1,48 @@
-// M1 domain schema: channel isolation, access control and versioned settings.
 generator client {
   provider = "prisma-client-js"
   output = "../packages/database/generated/client"
   previewFeatures = ["postgresqlExtensions"]
 }
-datasource db { provider = "postgresql" url = env("DATABASE_URL") extensions = [vector] }
-enum AuditActorType { HUMAN SYSTEM AI }
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+enum AuditActorType {
+  HUMAN
+  SYSTEM
+  AI
+}
+
 enum UserStatus {
   ACTIVE
   DISABLED
 }
+
 enum ChannelMode {
   MODERATED
   AUTO
 }
+
 enum ChannelStatus {
   ACTIVE
   PAUSED
   ARCHIVED
 }
+
 enum ChannelMemberRole {
   OWNER
   EDITOR
   OPERATOR
   VIEWER
 }
+
 enum CredentialProvider {
   TELEGRAM_BOT
 }
+
 model User {
   id String @id @default(uuid()) @db.Uuid
   email String @unique
@@ -41,6 +56,7 @@ model User {
   @@index([status])
   @@map("users")
 }
+
 model Channel {
   id String @id @default(uuid()) @db.Uuid
   telegramId String @unique @map("telegram_id")
@@ -58,6 +74,7 @@ model Channel {
   @@index([status, createdAt])
   @@map("channels")
 }
+
 model ChannelSettings {
   id String @id @default(uuid()) @db.Uuid
   channelId String @unique @map("channel_id") @db.Uuid
@@ -73,6 +90,7 @@ model ChannelSettings {
   emojiEnabled Boolean @default(false) @map("emoji_enabled")
   forbiddenTopics Json @default("[]") @map("forbidden_topics")
   legalRestrictions Json @default("[]") @map("legal_restrictions")
+  blacklist Json @default("[]")
   sourcePriorities Json @default("{}") @map("source_priorities")
   styleConfig Json @default("{}") @map("style_config")
   version Int @default(1)
@@ -81,6 +99,7 @@ model ChannelSettings {
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   @@map("channel_settings")
 }
+
 model ChannelMember {
   id String @id @default(uuid()) @db.Uuid
   channelId String @map("channel_id") @db.Uuid
@@ -94,6 +113,7 @@ model ChannelMember {
   @@index([userId, role])
   @@map("channel_members")
 }
+
 model SourceCredentialRef {
   id String @id @default(uuid()) @db.Uuid
   provider CredentialProvider
@@ -107,6 +127,7 @@ model SourceCredentialRef {
   @@index([provider])
   @@map("source_credential_refs")
 }
+
 model AuditLog {
   id String @id @default(uuid()) @db.Uuid
   actorType AuditActorType @map("actor_type")
@@ -122,6 +143,7 @@ model AuditLog {
   @@index([correlationId])
   @@map("audit_log")
 }
+
 model VectorProbe {
   id String @id @default(uuid()) @db.Uuid
   label String
