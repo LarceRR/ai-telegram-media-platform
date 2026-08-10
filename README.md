@@ -2,37 +2,38 @@
 
 First vertical slice of a modular monolith for AI-assisted Telegram publishing.
 
+## Stack
+
+- NestJS + TypeScript
+- Fastify HTTP adapter
+- Pino structured JSON logs
+- Vitest unit tests
+- Docker and GitHub Actions CI
+
 ## Scope
 
-This slice provides a runnable FastAPI service with:
+This slice provides a runnable NestJS service with:
 
 - one-channel configuration in memory;
-- RSS ingestion with canonical URL and content-hash deduplication;
+- ingestion with canonical URL and content-hash deduplication;
 - typed pipeline: discovery, writing, claim extraction, fact check, scoring and quality gate;
-- deterministic FakeProvider for tests and a port for future OpenRouter integration;
+- deterministic FakeProvider port for future AI providers;
 - moderation queue and idempotent publication records;
-- structured JSON logs and health/readiness endpoints.
+- health/readiness endpoints.
 
-The implementation deliberately keeps Telegram delivery behind a port. No secrets or real external credentials are required to run tests.
+Persistence, Redis/ARQ workers, real Telegram delivery, and the React admin UI are deliberately next slices.
 
 ## Run
 
 ```bash
-docker compose up --build
-curl http://localhost:8000/health
-curl http://localhost:8000/docs
+npm install
+npm run start:dev
+npm test
 ```
 
-Local development:
+Or with Docker:
 
 ```bash
-cd backend
-python -m venv .venv && . .venv/bin/activate
-pip install -e '.[dev]'
-pytest
-uvicorn app.main:app --reload
+docker compose up --build
+curl http://localhost:8000/health
 ```
-
-## Next vertical slice
-
-Persist the domain in PostgreSQL, add Redis/ARQ workers, and connect the Telegram adapter only after the deterministic pipeline and moderation flow are stable.
