@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ChannelMemberRole, Prisma } from '@atmp/database';
+import { ChannelMemberRole } from '@atmp/database';
 import type { ChannelResponse } from '@atmp/contracts';
 import { AppError } from '@atmp/shared';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
@@ -48,7 +48,8 @@ export class ChannelsService {
     const changed = Object.keys(dto).filter((key) => key !== 'expectedVersion');
     if (role !== ChannelMemberRole.OWNER && changed.some((key) => PROTECTED_FIELDS.has(key))) throw new AppError('FORBIDDEN', 'Only channel owners can change protected settings');
     if (changed.some((key) => !PROTECTED_FIELDS.has(key) && !OPTIMIZABLE_FIELDS.has(key))) throw new AppError('VALIDATION', 'Unknown settings field');
-    const settings = await this.prisma.channelSettings.updateMany({ where: { channelId: id, version: dto.expectedVersion }, data: { ...dto, expectedVersion: undefined, version: { increment: 1 } } });
+    const { expectedVersion: _expectedVersion, ...settingsData } = dto;
+    const settings = await this.prisma.channelSettings.updateMany({ where: { channelId: id, version: dto.expectedVersion }, data: { ...settingsData, version: { increment: 1 } } });
     if (settings.count !== 1) throw new AppError('CONFLICT', 'Settings version is stale; reload before updating');
     const updated = await this.prisma.channel.findUniqueOrThrow({ where: { id }, include: { settings: true, members: { where: { user: { externalId: actorExternalId } }, select: { role: true } }, credentials: { where: { active: true }, select: { id: true } } } });
     await this.audit.record({ actorType: 'HUMAN', actorId: actorExternalId, action: 'channel.settings.updated', entityType: 'ChannelSettings', entityId: id, metadata: { fields: changed, version: dto.expectedVersion + 1 } });
