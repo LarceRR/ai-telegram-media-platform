@@ -6,14 +6,12 @@ export class CreateChannelDto {
   @IsString() @MinLength(1) @MaxLength(200) title!: string;
   @IsOptional() @IsString() @MaxLength(10) language?: string;
 }
-
 export class UpdateChannelDto {
   @IsOptional() @IsString() @MaxLength(200) username?: string;
   @IsOptional() @IsString() @MinLength(1) @MaxLength(200) title?: string;
   @IsOptional() @IsString() @MaxLength(10) language?: string;
   @IsOptional() @IsIn(['ACTIVE', 'PAUSED', 'ARCHIVED']) status?: 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
 }
-
 export class UpdateSettingsDto {
   @IsOptional() @IsIn(['MODERATED', 'AUTO']) mode?: 'MODERATED' | 'AUTO';
   @IsOptional() @IsString() @MaxLength(80) timezone?: string;
@@ -31,12 +29,10 @@ export class UpdateSettingsDto {
   @IsOptional() @IsObject() styleConfig?: Record<string, unknown>;
   @IsInt() @Min(1) expectedVersion!: number;
 }
-
 export class AddMemberDto {
   @IsString() @MinLength(1) userId!: string;
   @IsIn(['OWNER', 'EDITOR', 'OPERATOR', 'VIEWER']) role!: 'OWNER' | 'EDITOR' | 'OPERATOR' | 'VIEWER';
 }
-
 export class CredentialRefDto {
   @IsString() @MinLength(1) @MaxLength(300) secretRef!: string;
 }
