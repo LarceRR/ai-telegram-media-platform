@@ -1,0 +1,53 @@
+# TEMPORARY. Delete after diagnosing M1.
+name: CI diagnostics M1
+on:
+  pull_request:
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, pull-requests: write }
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ${{ github.run_id }}
+          POSTGRES_DB: test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ci -d test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://ci:${{ github.run_id }}@localhost:5432/test?schema=public
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20.18.0' }
+      - name: Diagnose
+        continue-on-error: true
+        run: |
+          exec >/tmp/m1.log 2>&1
+          run_step() { echo "=== $1 ==="; shift; "$@" || true; }
+          node --version; pnpm --version
+          run_step install pnpm install --no-frozen-lockfile
+          run_step build pnpm build
+          run_step prisma-deploy pnpm prisma:deploy
+          run_step lint pnpm lint
+          run_step typecheck pnpm typecheck
+          run_step unit pnpm test
+          run_step integration pnpm test:int
+      - name: Report
+        if: always()
+        env: { GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        run: |
+          { echo '### M1 diagnostics'; echo '```text'; tail -c 55000 /tmp/m1.log; echo '```'; } > /tmp/body.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/body.md
