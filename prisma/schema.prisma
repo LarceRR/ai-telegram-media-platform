@@ -1,0 +1,51 @@
+// M0 foundation schema.
+// Scope: prove Prisma + PostgreSQL + pgvector wiring and the two cross-cutting
+// tables every later milestone depends on (audit trail + embedding storage).
+// Domain tables (channels, sources, ideas, stories, posts...) arrive in M1+.
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../packages/database/generated/client"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+enum AuditActorType {
+  HUMAN
+  SYSTEM
+  AI
+}
+
+/// Append-only audit trail. Never cascade-deleted, never mutated.
+model AuditLog {
+  id            String         @id @default(uuid()) @db.Uuid
+  actorType     AuditActorType @map("actor_type")
+  actorId       String?        @map("actor_id")
+  action        String
+  entityType    String         @map("entity_type")
+  entityId      String         @map("entity_id")
+  correlationId String?        @map("correlation_id")
+  metadata      Json?
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  @@index([entityType, entityId, createdAt])
+  @@index([action, createdAt])
+  @@index([correlationId])
+  @@map("audit_log")
+}
+
+/// Embedding smoke-test table: validates the pgvector column type, the chosen
+/// distance metric and the HNSW index before Smart Memory is built in M3.
+model VectorProbe {
+  id        String                       @id @default(uuid()) @db.Uuid
+  label     String
+  embedding Unsupported("vector(1536)")?
+  createdAt DateTime                     @default(now()) @map("created_at")
+
+  @@map("vector_probe")
+}
