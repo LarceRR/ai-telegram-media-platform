@@ -2,14 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, ChannelMemberRole, ChannelStatus, CredentialProvider, UserStatus } from '@atmp/database';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { AppError } from '@atmp/shared';
-import { AccessService } from '../../access/application/access.service';
 import type { AddMemberDto, CreateChannelDto, CredentialRefDto, UpdateChannelDto, UpdateSettingsDto } from '../presentation/dto/channel.dto';
 
 const roleRank: Record<ChannelMemberRole, number> = { OWNER: 4, EDITOR: 3, OPERATOR: 2, VIEWER: 1 };
 
 @Injectable()
 export class ChannelsService {
-  constructor(private readonly prisma: PrismaService, private readonly access: AccessService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(actorId: string, dto: CreateChannelDto) {
     const actor = await this.prisma.user.findUnique({ where: { id: actorId } });
@@ -43,10 +42,10 @@ export class ChannelsService {
     const current = await this.prisma.channelSettings.findUnique({ where: { channelId } });
     if (!current) throw new AppError('NOT_FOUND', 'Channel settings not found');
     if (current.version !== dto.expectedVersion) throw new AppError('CONFLICT', 'Settings version is stale', { expectedVersion: current.version });
-    const { expectedVersion, ...changes } = dto;
+    const { expectedVersion: _expectedVersion, ...changes } = dto;
     if (changes.minLength !== undefined && changes.maxLength !== undefined && changes.minLength > changes.maxLength) throw new AppError('VALIDATION', 'minLength cannot exceed maxLength');
     const updated = await this.prisma.channelSettings.update({ where: { channelId }, data: { ...changes, version: { increment: 1 }, forbiddenTopics: changes.forbiddenTopics as Prisma.InputJsonValue, legalRestrictions: changes.legalRestrictions as Prisma.InputJsonValue, sourcePriorities: changes.sourcePriorities as Prisma.InputJsonValue, styleConfig: changes.styleConfig as Prisma.InputJsonValue } });
-    await this.audit(actorId, 'channel.settings.updated', 'ChannelSettings', updated.id, { expectedVersion, newVersion: updated.version });
+    await this.audit(actorId, 'channel.settings.updated', 'ChannelSettings', updated.id, { expectedVersion: dto.expectedVersion, newVersion: updated.version });
     return updated;
   }
 
