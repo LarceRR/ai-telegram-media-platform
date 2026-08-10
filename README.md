@@ -12,26 +12,16 @@ Architecture and scope live in the master epic:
 
 ## Status
 
-**M0 Foundation.** Skeleton only: no channels, sources, AI pipeline or
-publishing yet. See [docs/m0-foundation.md](./docs/m0-foundation.md).
+**M1 Channels and access.** Channel CRUD, membership-scoped isolation, baseline
+RBAC, protected versus future-optimizable settings, optimistic concurrency,
+Telegram credential references and audit events are shipped. See
+[docs/m1-channels-access.md](./docs/m1-channels-access.md).
 
 ## Stack
 
 TypeScript everywhere. NestJS modular monolith (REST API plus worker mode),
 Next.js admin UI, PostgreSQL + Prisma + pgvector, Redis + BullMQ, Pino, Zod,
 Docker Compose, GitHub Actions.
-
-## Layout
-
-    apps/api              NestJS API: presentation -> application -> domain, infra adapters
-    apps/worker           BullMQ processors; boots the same codebase without HTTP
-    apps/web              Next.js admin console (feature-oriented)
-    packages/contracts    Zod schemas, queue names, job contracts, idempotency keys
-    packages/config       Typed, fail-fast environment configuration
-    packages/shared       Logger, correlation IDs, error taxonomy, shutdown
-    packages/database     Single import boundary for the generated Prisma client
-    prisma/               Schema and migrations (pgvector included)
-    docs/adr/             Architecture decision records
 
 ## Quick start
 
@@ -43,7 +33,8 @@ Docker Compose, GitHub Actions.
     pnpm dev:worker
     pnpm dev:web    # :3000
 
-Full runbook and smoke tests: [docs/m0-foundation.md](./docs/m0-foundation.md).
+Full runbooks: [docs/m0-foundation.md](./docs/m0-foundation.md) and
+[docs/m1-channels-access.md](./docs/m1-channels-access.md).
 
 ## Ground rules
 
