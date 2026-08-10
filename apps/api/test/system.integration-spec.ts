@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
+import { toJobId, idempotencyKeys } from '@atmp/contracts';
 import request from 'supertest';
 import { AppModule } from '../src/app/app.module';
 
@@ -54,5 +55,7 @@ describe('system endpoints (integration)', () => {
       .expect(202);
 
     expect(first.body.jobId).toBe(second.body.jobId);
+    expect(first.body.jobId).toBe(toJobId(idempotencyKeys.healthProbe(probeId)));
+    expect(first.body.jobId).not.toContain(':');
   });
 });

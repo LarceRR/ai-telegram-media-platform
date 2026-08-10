@@ -5,6 +5,7 @@ import {
   DEFAULT_QUEUE_POLICIES,
   QUEUE_NAMES,
   QUEUE_PREFIX,
+  toJobId,
   type QueueDepth,
   type QueueName,
 } from '@atmp/contracts';
@@ -47,7 +48,11 @@ export class QueueRegistry implements OnModuleDestroy {
     return queue;
   }
 
-  /** @param idempotencyKey deterministic BullMQ job id; identical keys collapse. */
+  /**
+   * @param idempotencyKey deterministic key from @atmp/contracts. Encoded here
+   * into a BullMQ-safe job id, so callers never deal with that constraint and
+   * cannot accidentally bypass it.
+   */
   async enqueue<TPayload extends object>(
     name: QueueName,
     jobName: string,
@@ -55,8 +60,9 @@ export class QueueRegistry implements OnModuleDestroy {
     idempotencyKey: string,
     options: JobsOptions = {},
   ): Promise<string> {
-    const job = await this.get(name).add(jobName, payload, { ...options, jobId: idempotencyKey });
-    return job.id ?? idempotencyKey;
+    const jobId = toJobId(idempotencyKey);
+    const job = await this.get(name).add(jobName, payload, { ...options, jobId });
+    return job.id ?? jobId;
   }
 
   async depths(): Promise<QueueDepth[]> {

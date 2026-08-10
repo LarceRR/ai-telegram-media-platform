@@ -35,3 +35,15 @@ export const idempotencyKeys = {
     `schedule:${channelId}:${postId}:${slot}`,
   healthProbe: (probeId: string) => `health-probe:${probeId}`,
 } as const;
+
+/**
+ * BullMQ rejects custom job ids containing ':', which is exactly the separator
+ * our keys use, and publication keys also embed an ISO timestamp full of colons.
+ *
+ * Simply deleting colons would be lossy: `a:b_c` and `a_b:c` would collapse onto
+ * the same id and silently break idempotency. Doubling underscores first keeps
+ * the encoding injective, so distinct keys always produce distinct job ids.
+ */
+export function toJobId(idempotencyKey: string): string {
+  return idempotencyKey.replace(/_/g, '__').replace(/:/g, '_');
+}
