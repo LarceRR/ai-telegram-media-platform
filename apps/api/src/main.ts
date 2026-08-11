@@ -22,19 +22,24 @@ async function bootstrap(): Promise<void> {
     cors: false,
   });
 
-  app.use(helmet());
   app.enableCors({
     origin: env.CORS_ALLOWED_ORIGINS,
     credentials: true,
     allowedHeaders: [
-      'content-type',
-      'authorization',
-      'x-user-id',
-      'x-actor-id',
+      'Accept',
+      'Content-Type',
+      'Authorization',
+      'X-User-Id',
+      'X-Actor-Id',
       CORRELATION_ID_HEADER,
     ],
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'OPTIONS'],
+    optionsSuccessStatus: 204,
+    preflightContinue: false,
     exposedHeaders: [CORRELATION_ID_HEADER],
   });
+
+  app.use(helmet());
   app.setGlobalPrefix(env.API_GLOBAL_PREFIX);
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
