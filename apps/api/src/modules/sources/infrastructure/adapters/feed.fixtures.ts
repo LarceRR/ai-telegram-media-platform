@@ -1,4 +1,4 @@
-/** Fixtures for adapter contract tests. Excluded from the build output. */
+/** Fixtures for adapter and ingestion tests. Excluded from the build output. */
 
 export const FEED_URL = 'https://feed.test/rss.xml';
 export const PAGE_URL = 'https://web.test/article?utm_source=x';
@@ -56,6 +56,37 @@ export const PARTIALLY_BROKEN_FEED = `<rss version="2.0"><channel>
     <title>Usable</title>
     <link>https://feed.test/posts/ok</link>
     <description>Body</description>
+  </item>
+</channel></rss>`;
+
+/**
+ * No dates anywhere, so the watermark cannot short-circuit a second run. That
+ * is what makes it useful for proving upsert-based deduplication.
+ */
+export const NO_DATES_FEED = `<rss version="2.0"><channel>
+  <item>
+    <title>Undated one</title>
+    <link>https://feed.test/undated/1</link>
+    <description>First undated body</description>
+  </item>
+  <item>
+    <title>Undated two</title>
+    <link>https://feed.test/undated/2</link>
+    <description>Second undated body</description>
+  </item>
+</channel></rss>`;
+
+/** Two distinct external ids carrying identical content. */
+export const DUPLICATE_TEXT_FEED = `<rss version="2.0"><channel>
+  <item>
+    <title>Original</title>
+    <link>https://feed.test/dup/1</link>
+    <description>Exactly the same body text</description>
+  </item>
+  <item>
+    <title>Syndicated copy</title>
+    <link>https://feed.test/dup/2</link>
+    <description>Exactly the same body text</description>
   </item>
 </channel></rss>`;
 

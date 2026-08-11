@@ -56,8 +56,25 @@ export const sourceResponseSchema = z.object({
   type: sourceTypeSchema,
   url: z.string().url(),
   status: sourceStatusSchema,
+  categories: z.array(z.string()),
   priority: z.number().int(),
+  enabled: z.boolean(),
   lastIngestedAt: z.string().datetime().nullable(),
   lastHealthStatus: sourceHealthStatusSchema.nullable(),
 });
 export type SourceResponse = z.infer<typeof sourceResponseSchema>;
+
+export const sourceIngestAcceptedSchema = z.object({
+  sourceId: z.string().uuid(),
+  jobId: z.string().min(1),
+});
+export type SourceIngestAccepted = z.infer<typeof sourceIngestAcceptedSchema>;
+
+export const sourceHealthReportSchema = z.object({
+  status: sourceHealthStatusSchema,
+  latencyMs: z.number().int().nonnegative(),
+  httpStatus: z.number().int().nullable(),
+  errorCategory: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+});
+export type SourceHealthReportContract = z.infer<typeof sourceHealthReportSchema>;

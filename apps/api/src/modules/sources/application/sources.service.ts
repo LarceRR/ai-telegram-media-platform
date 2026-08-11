@@ -67,12 +67,11 @@ export class SourcesService {
       orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
     });
     return rows.map((row) =>
-      this.response(
-        row.source,
-        channelId,
-        row.priority,
-        row.source.healthSnapshots[0]?.status ?? null,
-      ),
+      this.response(row.source, channelId, {
+        priority: row.priority,
+        enabled: row.enabled,
+        health: row.source.healthSnapshots[0]?.status ?? null,
+      }),
     );
   }
 
@@ -80,8 +79,16 @@ export class SourcesService {
     const user = await this.access(actor, channelId, ChannelMemberRole.EDITOR);
     const source = await this.prisma.source.upsert({
       where: { type_url: { type: dto.type, url: dto.url } },
-      update: { name: dto.name },
-      create: { name: dto.name, type: dto.type, url: dto.url },
+      update: {
+        name: dto.name,
+        ...(dto.categories ? { categories: dto.categories } : {}),
+      },
+      create: {
+        name: dto.name,
+        type: dto.type,
+        url: dto.url,
+        categories: dto.categories ?? [],
+      },
     });
     const link = await this.prisma.channelSource.upsert({
       where: { channelId_sourceId: { channelId, sourceId: source.id } },
@@ -96,7 +103,11 @@ export class SourcesService {
       entityId: source.id,
       metadata: { channelId, type: dto.type },
     });
-    return this.response(source, channelId, link.priority, null);
+    return this.response(source, channelId, {
+      priority: link.priority,
+      enabled: link.enabled,
+      health: null,
+    });
   }
 
   async update(
@@ -118,10 +129,11 @@ export class SourcesService {
         ...(dto.name ? { name: dto.name } : {}),
         ...(dto.url ? { url: dto.url } : {}),
         ...(dto.status ? { status: dto.status } : {}),
+        ...(dto.categories ? { categories: dto.categories } : {}),
       },
     });
 
-    let priority = link.priority;
+    let binding = { priority: link.priority, enabled: link.enabled };
     if (dto.priority !== undefined || dto.enabled !== undefined) {
       const updated = await this.prisma.channelSource.update({
         where: { id: link.id },
@@ -130,7 +142,7 @@ export class SourcesService {
           ...(dto.enabled !== undefined ? { enabled: dto.enabled } : {}),
         },
       });
-      priority = updated.priority;
+      binding = { priority: updated.priority, enabled: updated.enabled };
     }
 
     await this.audit.record({
@@ -141,7 +153,7 @@ export class SourcesService {
       entityId: id,
       metadata: { channelId, enabled: dto.enabled ?? null, status: dto.status ?? null },
     });
-    return this.response(source, channelId, priority, null);
+    return this.response(source, channelId, { ...binding, health: null });
   }
 
   /**
@@ -261,15 +273,10 @@ export class SourcesService {
         latencyMs: Date.now() - started,
         httpStatus: result.httpStatus,
         errorCategory: quarantined.length > 0 ? 'MALFORMED_ITEM' : null,
-        errorMessage:
-          quarantined.length > 0
-            ? quarantined
-                .map((entry) => entry.reason)
-                .join(' | ')
-                .slice(0, 500)
-            : duplicates > 0
-              ? `${duplicates} duplicate item(s) skipped`
-              : null,
+        errorMessage: describeRun(
+          quarantined.map((entry) => entry.reason),
+          duplicates,
+        ),
       });
     } catch (error) {
       await this.snapshot(source.id, {
@@ -279,7 +286,7 @@ export class SourcesService {
         errorCategory: toErrorCategory(error),
         errorMessage: error instanceof Error ? error.message.slice(0, 500) : 'Unknown error',
       });
-      // Rethrow so the queue can apply the retry policy for this source only.
+      // Rethrow so the queue applies the retry policy to this source alone.
       throw error;
     }
   }
@@ -296,17 +303,13 @@ export class SourcesService {
     item: SourceItemPayload,
   ): Promise<'stored' | 'duplicate'> {
     const normalizedText = item.text.trim().replace(/\s+/g, ' ');
-    const contentHash = createHash('sha256')
-      .update(normalizedText.toLowerCase())
-      .digest('hex');
+    const contentHash = createHash('sha256').update(normalizedText.toLowerCase()).digest('hex');
     const images = item.images.map((image) => ({ url: image.url, alt: image.alt ?? null }));
     const publishedAt = item.publishedAt ? new Date(item.publishedAt) : null;
 
     try {
       await this.prisma.sourceItem.upsert({
-        where: {
-          sourceId_externalItemId: { sourceId, externalItemId: item.externalItemId },
-        },
+        where: { sourceId_externalItemId: { sourceId, externalItemId: item.externalItemId } },
         update: {
           canonicalUrl: item.canonicalUrl,
           title: item.title,
@@ -355,8 +358,7 @@ export class SourcesService {
   private response(
     source: Source,
     channelId: string,
-    priority: number,
-    health: SourceHealthStatus | null,
+    binding: { priority: number; enabled: boolean; health: SourceHealthStatus | null },
   ): SourceResponse {
     return {
       id: source.id,
@@ -365,9 +367,17 @@ export class SourcesService {
       type: source.type,
       url: source.url,
       status: source.status,
-      priority,
+      categories: source.categories,
+      priority: binding.priority,
+      enabled: binding.enabled,
       lastIngestedAt: source.lastIngestedAt?.toISOString() ?? null,
-      lastHealthStatus: health,
+      lastHealthStatus: binding.health,
     };
   }
+}
+
+function describeRun(reasons: readonly string[], duplicates: number): string | null {
+  if (reasons.length > 0) return reasons.join(' | ').slice(0, 500);
+  if (duplicates > 0) return `${duplicates} duplicate item(s) skipped`;
+  return null;
 }
