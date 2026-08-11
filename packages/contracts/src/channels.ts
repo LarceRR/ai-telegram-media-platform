@@ -35,5 +35,6 @@ export const channelResponseSchema = z.object({
   telegramCredentialConfigured: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  version: z.number().int().positive(),
 });
 export type ChannelResponse = z.infer<typeof channelResponseSchema>;
