@@ -5,12 +5,19 @@ import { APP_ENV } from '../../../common/config.module';
 import { AI_HTTP_CLIENT } from './ai.tokens';
 import { AIProviderError, classifyHttpFailure } from '../domain/ai-provider';
 
+type OpenRouterEnv = AppEnv & {
+  OPENROUTER_API_KEY?: string;
+  OPENROUTER_BASE_URL: string;
+  OPENROUTER_SITE_URL?: string;
+  OPENROUTER_APP_NAME: string;
+};
+
 export interface AIHttpClient { request(input: string | URL, init?: RequestInit): Promise<Response>; }
 
 @Injectable()
 export class OpenRouterProvider {
   readonly name = 'OPENROUTER';
-  constructor(@Inject(APP_ENV) private readonly env: AppEnv, @Inject(AI_HTTP_CLIENT) private readonly http: AIHttpClient) {}
+  constructor(@Inject(APP_ENV) private readonly env: OpenRouterEnv, @Inject(AI_HTTP_CLIENT) private readonly http: AIHttpClient) {}
 
   async run(request: AITaskRequest): Promise<AITaskResult> {
     if (!this.env.OPENROUTER_API_KEY) throw new AIProviderError('AUTHENTICATION', 'OpenRouter API key is not configured', false);
