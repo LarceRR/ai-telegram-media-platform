@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { jaccard } from '@atmp/shared';
-import type { MatchMethod, StoryRelationType } from '@atmp/contracts';
+import type { StoryRelationType } from '@atmp/contracts';
 
 export interface AttachIdeaResult { storyId: string; relation: StoryRelationType | null; confidence: number; }
 
@@ -9,10 +9,6 @@ export interface AttachIdeaResult { storyId: string; relation: StoryRelationType
 export class StoryGraphService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * A story is a durable topic cluster, not a one-item alias. We match active
-   * stories using explainable entity/topic overlap, then persist the item link.
-   */
   async attachIdea(input: {
     channelId: string; ideaId: string; title: string; summary: string;
     entities: readonly string[]; topics: readonly string[];
