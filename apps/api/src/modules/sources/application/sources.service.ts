@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ChannelMemberRole } from '@atmp/database';
+import { ChannelMemberRole, type Source } from '@atmp/database';
 import type { IngestSourceJob, SourceResponse } from '@atmp/contracts';
 import { AppError } from '@atmp/shared';
 import { createHash } from 'node:crypto';
@@ -200,7 +200,7 @@ export class SourcesService {
     }
   }
   private response(
-    source: any,
+    source: Source,
     channelId: string,
     priority: number,
     health: string | null,

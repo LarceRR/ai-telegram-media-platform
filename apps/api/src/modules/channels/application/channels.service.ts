@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ChannelMemberRole } from '@atmp/database';
+import { ChannelMemberRole, Prisma } from '@atmp/database';
 import type { ChannelResponse } from '@atmp/contracts';
 import { AppError } from '@atmp/shared';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
@@ -19,6 +19,14 @@ const protectedFields = new Set([
   'researchMaxLevel',
 ]);
 const rank = { VIEWER: 0, EDITOR: 1, OPERATOR: 1, OWNER: 2 } as const;
+
+type ChannelWithRelations = Prisma.ChannelGetPayload<{
+  include: {
+    settings: true;
+    members: { select: { role: true; userId: true } };
+    credential: { select: { id: true } };
+  };
+}>;
 
 @Injectable()
 export class ChannelsService {
@@ -78,7 +86,7 @@ export class ChannelsService {
     const current = await this.authorized(actorValue, id, ChannelMemberRole.EDITOR);
     const row = await this.prisma.channel.update({
       where: { id },
-      data: dto as any,
+      data: dto as Prisma.ChannelUpdateInput,
       include: this.include(current.members[0]?.userId),
     });
     return this.toResponse(row, current.members[0]?.role ?? ChannelMemberRole.EDITOR);
@@ -92,7 +100,10 @@ export class ChannelsService {
     const { expectedVersion, ...settingsData } = dto;
     const result = await this.prisma.channelSettings.updateMany({
       where: { channelId: id, version: expectedVersion },
-      data: { ...settingsData, version: { increment: 1 } } as any,
+      data: {
+        ...settingsData,
+        version: { increment: 1 },
+      } as Prisma.ChannelSettingsUpdateManyMutationInput,
     });
     if (result.count !== 1) throw new AppError('CONFLICT', 'Settings version is stale');
     const row = await this.prisma.channel.findUniqueOrThrow({
@@ -164,7 +175,7 @@ export class ChannelsService {
       throw new AppError('FORBIDDEN', 'Insufficient channel permissions');
     return row;
   }
-  private toResponse(channel: any, role: ChannelMemberRole): ChannelResponse {
+  private toResponse(channel: ChannelWithRelations, role: ChannelMemberRole): ChannelResponse {
     const settings = channel.settings;
     if (!settings) throw new AppError('INTERNAL', 'Channel settings missing');
     return {

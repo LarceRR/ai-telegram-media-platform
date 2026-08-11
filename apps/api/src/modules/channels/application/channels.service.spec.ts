@@ -1,17 +1,19 @@
 import { ChannelMemberRole } from '@atmp/database';
 import { ChannelsService } from './channels.service';
+import type { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import type { AuditLogService } from '../../system/application/audit-log.service';
+
+const auditStub = {} as unknown as AuditLogService;
 
 describe('ChannelsService policy', () => {
   it('increments settings version on a successful optimistic update', async () => {
     const prisma = {
       user: { findFirst: jest.fn().mockResolvedValue({ id: 'u1' }) },
       channel: {
-        findFirst: jest
-          .fn()
-          .mockResolvedValue({
-            members: [{ role: ChannelMemberRole.OWNER, userId: 'u1' }],
-            settings: { version: 1 },
-          }),
+        findFirst: jest.fn().mockResolvedValue({
+          members: [{ role: ChannelMemberRole.OWNER, userId: 'u1' }],
+          settings: { version: 1 },
+        }),
         findUniqueOrThrow: jest.fn().mockResolvedValue({
           id: 'c1',
           telegramId: 'tg-1',
@@ -43,12 +45,12 @@ describe('ChannelsService policy', () => {
         }),
       },
       channelSettings: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
-    } as any;
-    const service = new ChannelsService(prisma, {} as any);
+    } as unknown as PrismaService;
+    const service = new ChannelsService(prisma, auditStub);
     const result = await service.updateSettings('u1', 'c1', {
       mode: 'AUTO',
       expectedVersion: 1,
-    } as any);
+    });
     expect(prisma.channelSettings.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { channelId: 'c1', version: 1 },
@@ -62,27 +64,25 @@ describe('ChannelsService policy', () => {
     const prisma = {
       user: { findFirst: jest.fn().mockResolvedValue({ id: 'u1' }) },
       channel: {
-        findFirst: jest
-          .fn()
-          .mockResolvedValue({
-            members: [{ role: ChannelMemberRole.OWNER, userId: 'u1' }],
-            settings: { version: 3 },
-          }),
+        findFirst: jest.fn().mockResolvedValue({
+          members: [{ role: ChannelMemberRole.OWNER, userId: 'u1' }],
+          settings: { version: 3 },
+        }),
       },
       channelSettings: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
-    } as any;
-    const service = new ChannelsService(prisma, {} as any);
-    await expect(
-      service.updateSettings('u1', 'c1', { expectedVersion: 2 } as any),
-    ).rejects.toMatchObject({ category: 'CONFLICT' });
+    } as unknown as PrismaService;
+    const service = new ChannelsService(prisma, auditStub);
+    await expect(service.updateSettings('u1', 'c1', { expectedVersion: 2 })).rejects.toMatchObject({
+      category: 'CONFLICT',
+    });
   });
 
   it('rejects a non-member before checking the requested role', async () => {
     const prisma = {
       user: { findFirst: jest.fn().mockResolvedValue({ id: 'u1' }) },
       channel: { findFirst: jest.fn().mockResolvedValue(null) },
-    } as any;
-    const service = new ChannelsService(prisma, {} as any);
+    } as unknown as PrismaService;
+    const service = new ChannelsService(prisma, auditStub);
     await expect(service.get('u1', 'c1')).rejects.toMatchObject({ category: 'FORBIDDEN' });
   });
 });

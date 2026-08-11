@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
+import type { Logger } from '@atmp/shared';
 import request from 'supertest';
 import { AppModule } from '../src/app/app.module';
 import { AllExceptionsFilter } from '../src/common/all-exceptions.filter';
@@ -15,7 +16,8 @@ describe('channels and access (integration)', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api/v1');
-    app.useGlobalFilters(new AllExceptionsFilter({ error: jest.fn(), warn: jest.fn() } as any));
+    const logger = { error: jest.fn(), warn: jest.fn() } as unknown as Logger;
+    app.useGlobalFilters(new AllExceptionsFilter(logger));
     await app.init();
     const unique = Date.now();
     const owner = await request(app.getHttpServer())
