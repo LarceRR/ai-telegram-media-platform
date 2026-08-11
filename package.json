@@ -1,1 +1,50 @@
-{"name":"ai-telegram-media-platform","private":true,"version":"0.0.0","packageManager":"pnpm@9.12.3","engines":{"node":">=20.11.0","pnpm":">=9"},"scripts":{"build":"pnpm -r --if-present run build","typecheck":"pnpm -r --if-present run typecheck","lint":"eslint .","lint:fix":"eslint . --fix","format":"prettier --write .","format:check":"prettier --check .","test":"pnpm -r --if-present run test","test:int":"pnpm -r --if-present run test:int","dev:api":"pnpm --filter @atmp/api dev","dev:worker":"pnpm --filter @atmp/worker dev","dev:web":"pnpm --filter @atmp/web dev","prisma:generate":"prisma generate","prisma:validate":"prisma validate","prisma:format":"prisma format","prisma:migrate":"prisma migrate dev","prisma:deploy":"prisma migrate deploy","prisma:studio":"prisma studio","infra:up":"docker compose up -d postgres redis minio minio-init","infra:down":"docker compose down","infra:reset":"docker compose down -v"},"prisma":{"schema":"prisma/schema.prisma"},"devDependencies":{"@eslint/js":"9.13.0","@prisma/client":"5.22.0","@types/jest":"29.5.14","@types/node":"20.16.14","eslint":"9.13.0","eslint-config-prettier":"9.1.0","jest":"29.7.0","prettier":"3.3.3","prisma":"5.22.0","ts-jest":"29.2.5","tsx":"4.19.1","typescript":"5.6.3","typescript-eslint":"8.66.0"}}
+{
+  "name": "ai-telegram-media-platform",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r --if-present run test",
+    "test:int": "pnpm -r --if-present run test:int",
+    "dev:api": "pnpm --filter @atmp/api dev",
+    "dev:worker": "pnpm --filter @atmp/worker dev",
+    "dev:web": "pnpm --filter @atmp/web dev",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:format": "prisma format",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "infra:up": "docker compose up -d postgres redis minio minio-init",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v"
+  },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.13.0",
+    "@prisma/client": "5.22.0",
+    "@types/jest": "29.5.14",
+    "@types/node": "20.16.14",
+    "eslint": "9.13.0",
+    "eslint-config-prettier": "9.1.0",
+    "jest": "29.7.0",
+    "prettier": "3.3.3",
+    "prisma": "5.22.0",
+    "ts-jest": "29.2.5",
+    "tsx": "4.19.1",
+    "typescript": "5.6.3",
+    "typescript-eslint": "8.66.0"
+  }
+}

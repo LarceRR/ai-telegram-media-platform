@@ -44,7 +44,10 @@ export async function startWorkers(options: {
         const handler = handlers[job.name];
         if (!handler) {
           // Unknown job names are a contract violation, never a silent retry loop.
-          logger.error({ queue: queueName, jobName: job.name, jobId: job.id }, 'no processor registered');
+          logger.error(
+            { queue: queueName, jobName: job.name, jobId: job.id },
+            'no processor registered',
+          );
           throw new Error(`No processor registered for "${queueName}:${job.name}"`);
         }
         await handler(job, processorContext);

@@ -1,6 +1,18 @@
-import { Catch, HttpException, HttpStatus, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
+import {
+  Catch,
+  HttpException,
+  HttpStatus,
+  type ArgumentsHost,
+  type ExceptionFilter,
+} from '@nestjs/common';
 import type { ApiError } from '@atmp/contracts';
-import { AppError, newCorrelationId, toErrorCategory, type ErrorCategory, type Logger } from '@atmp/shared';
+import {
+  AppError,
+  newCorrelationId,
+  toErrorCategory,
+  type ErrorCategory,
+  type Logger,
+} from '@atmp/shared';
 import type { Request, Response } from 'express';
 
 const STATUS_BY_CATEGORY: Record<ErrorCategory, number> = {
@@ -61,7 +73,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       },
     };
 
-    const logPayload = { correlationId, statusCode, category, path: body.error.path, err: exception };
+    const logPayload = {
+      correlationId,
+      statusCode,
+      category,
+      path: body.error.path,
+      err: exception,
+    };
     if (statusCode >= 500) {
       this.logger.error(logPayload, 'request failed');
     } else {

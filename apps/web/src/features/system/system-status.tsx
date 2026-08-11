@@ -71,7 +71,9 @@ export function SystemStatus() {
       <section className="rounded-lg border border-border bg-panel p-5">
         <h2 className="text-sm font-medium text-slate-300">Queues</h2>
 
-        {metrics.isError ? <p className="mt-3 text-sm text-rose-300">Metrics unavailable.</p> : null}
+        {metrics.isError ? (
+          <p className="mt-3 text-sm text-rose-300">Metrics unavailable.</p>
+        ) : null}
 
         <table className="mt-4 w-full text-left text-sm">
           <thead>

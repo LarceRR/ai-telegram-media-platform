@@ -26,17 +26,19 @@ describe('channel contracts', () => {
   });
 
   it('rejects a channel response without a membership role', () => {
-    expect(() => channelResponseSchema.parse({
-      id: '00000000-0000-4000-8000-000000000000',
-      telegramId: '-1',
-      title: 'News',
-      username: null,
-      language: 'en',
-      status: 'ACTIVE',
-      settings,
-      telegramCredentialConfigured: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    })).toThrow();
+    expect(() =>
+      channelResponseSchema.parse({
+        id: '00000000-0000-4000-8000-000000000000',
+        telegramId: '-1',
+        title: 'News',
+        username: null,
+        language: 'en',
+        status: 'ACTIVE',
+        settings,
+        telegramCredentialConfigured: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }),
+    ).toThrow();
   });
 });
