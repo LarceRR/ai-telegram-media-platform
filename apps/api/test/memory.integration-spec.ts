@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
-import request from 'supertest';
 import { canonicalizeUrl } from '@atmp/shared';
 import { AppModule } from '../src/app/app.module';
 import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
@@ -11,6 +10,10 @@ import { MemoryService } from '../src/modules/memory/application/memory.service'
  * Real PostgreSQL, real pgvector, real HNSW index. Only the embedding model is
  * deterministic, which is the point: the cascade has to be provable without a
  * network call.
+ *
+ * The fixture is seeded through Prisma rather than the API. `/access/bootstrap`
+ * creates the first admin and refuses to run twice, so it is a one-shot per
+ * database and belongs to whichever suite runs first.
  */
 describe('smart memory (integration)', () => {
   let app: INestApplication;
@@ -48,23 +51,27 @@ describe('smart memory (integration)', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
-    app.setGlobalPrefix('api/v1');
     await app.init();
 
     prisma = app.get(PrismaService);
     memory = app.get(MemoryService);
 
     const unique = Date.now();
-    const owner = await request(app.getHttpServer())
-      .post('/api/v1/access/bootstrap')
-      .send({ email: `memory-owner-${unique}@test.local`, displayName: 'Owner' })
-      .expect(201);
-    const channel = await request(app.getHttpServer())
-      .post('/api/v1/channels')
-      .set('x-actor-id', owner.body.id)
-      .send({ telegramId: `tg-memory-${unique}`, title: 'M3 channel', language: 'en' })
-      .expect(201);
-    channelId = channel.body.id;
+    const owner = await prisma.user.create({
+      data: { email: `memory-owner-${unique}@test.local`, displayName: 'Memory owner' },
+      select: { id: true },
+    });
+    const channel = await prisma.channel.create({
+      data: {
+        telegramId: `tg-memory-${unique}`,
+        title: 'M3 channel',
+        language: 'en',
+        createdById: owner.id,
+        members: { create: { userId: owner.id, role: 'OWNER' } },
+      },
+      select: { id: true },
+    });
+    channelId = channel.id;
   });
 
   afterAll(async () => {
