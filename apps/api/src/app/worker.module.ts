@@ -4,6 +4,7 @@ import { InfrastructureModule } from '../infrastructure/infrastructure.module';
 import { SystemModule } from '../modules/system/system.module';
 import { AccessModule } from '../modules/access/access.module';
 import { ChannelsModule } from '../modules/channels/channels.module';
+import { MemoryModule } from '../modules/memory/memory.module';
 import { SourcesModule } from '../modules/sources/sources.module';
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { SourcesModule } from '../modules/sources/sources.module';
     AccessModule,
     ChannelsModule,
     SourcesModule,
+    MemoryModule,
   ],
 })
 export class WorkerModule {}
