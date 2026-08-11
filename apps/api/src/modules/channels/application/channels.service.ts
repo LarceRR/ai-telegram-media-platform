@@ -19,6 +19,7 @@ const protectedFields = new Set([
   'researchMaxLevel',
 ]);
 const rank = { VIEWER: 0, EDITOR: 1, OPERATOR: 1, OWNER: 2 } as const;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type ChannelWithRelations = Prisma.ChannelGetPayload<{
   include: {
@@ -35,7 +36,10 @@ export class ChannelsService {
     private readonly audit: AuditLogService,
   ) {}
   private actor(value: string) {
-    return this.prisma.user.findFirst({ where: { OR: [{ id: value }, { email: value }] } });
+    const where: Prisma.UserWhereInput = UUID_PATTERN.test(value)
+      ? { id: value }
+      : { email: value };
+    return this.prisma.user.findFirst({ where });
   }
   async create(
     actorValue: string,
