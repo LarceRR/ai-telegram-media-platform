@@ -1,17 +1,12 @@
-// M0 foundation schema.
-// Scope: prove Prisma + PostgreSQL + pgvector wiring and the two cross-cutting
-// tables every later milestone depends on (audit trail + embedding storage).
-// Domain tables (channels, sources, ideas, stories, posts...) arrive in M1+.
-
 generator client {
-  provider        = "prisma-client-js"
-  output          = "../packages/database/generated/client"
+  provider = "prisma-client-js"
+  output = "../packages/database/generated/client"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider   = "postgresql"
-  url        = env("DATABASE_URL")
+  provider = "postgresql"
+  url = env("DATABASE_URL")
   extensions = [vector]
 }
 
@@ -21,31 +16,138 @@ enum AuditActorType {
   AI
 }
 
-/// Append-only audit trail. Never cascade-deleted, never mutated.
-model AuditLog {
-  id            String         @id @default(uuid()) @db.Uuid
-  actorType     AuditActorType @map("actor_type")
-  actorId       String?        @map("actor_id")
-  action        String
-  entityType    String         @map("entity_type")
-  entityId      String         @map("entity_id")
-  correlationId String?        @map("correlation_id")
-  metadata      Json?
-  createdAt     DateTime       @default(now()) @map("created_at")
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
 
+enum ChannelMode {
+  MODERATED
+  AUTO
+}
+
+enum ChannelStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum ChannelMemberRole {
+  OWNER
+  EDITOR
+  OPERATOR
+  VIEWER
+}
+
+enum CredentialProvider {
+  TELEGRAM_BOT
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  email String @unique
+  displayName String @map("display_name")
+  status UserStatus @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  memberships ChannelMember[]
+  createdChannels Channel[] @relation("channel_creator")
+  credentialRefs SourceCredentialRef[]
+  @@index([status])
+  @@map("users")
+}
+
+model Channel {
+  id String @id @default(uuid()) @db.Uuid
+  telegramId String @unique @map("telegram_id")
+  username String?
+  title String
+  language String @default("en")
+  status ChannelStatus @default(ACTIVE)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  settings ChannelSettings?
+  members ChannelMember[]
+  createdBy User @relation("channel_creator", fields: [createdById], references: [id], onDelete: Restrict)
+  credential SourceCredentialRef?
+  @@index([status, createdAt])
+  @@map("channels")
+}
+
+model ChannelSettings {
+  id String @id @default(uuid()) @db.Uuid
+  channelId String @unique @map("channel_id") @db.Uuid
+  mode ChannelMode @default(MODERATED)
+  timezone String @default("UTC")
+  minInterest Int @default(6) @map("min_interest")
+  minQuality Int @default(6) @map("min_quality")
+  minEvidence Int @default(7) @map("min_evidence")
+  minOriginality Int @default(5) @map("min_originality")
+  researchMaxLevel Int @default(2) @map("research_max_level")
+  minLength Int? @map("min_length")
+  maxLength Int? @map("max_length")
+  emojiEnabled Boolean @default(false) @map("emoji_enabled")
+  forbiddenTopics Json @default("[]") @map("forbidden_topics")
+  legalRestrictions Json @default("[]") @map("legal_restrictions")
+  blacklist Json @default("[]")
+  sourcePriorities Json @default("{}") @map("source_priorities")
+  styleConfig Json @default("{}") @map("style_config")
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  @@map("channel_settings")
+}
+
+model ChannelMember {
+  id String @id @default(uuid()) @db.Uuid
+  channelId String @map("channel_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  role ChannelMemberRole
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@unique([channelId, userId])
+  @@index([userId, role])
+  @@map("channel_members")
+}
+
+model SourceCredentialRef {
+  id String @id @default(uuid()) @db.Uuid
+  provider CredentialProvider
+  secretRef String @map("secret_ref")
+  channelId String? @unique @map("channel_id") @db.Uuid
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  channel Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  @@index([provider])
+  @@map("source_credential_refs")
+}
+
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+  actorType AuditActorType @map("actor_type")
+  actorId String? @map("actor_id")
+  action String
+  entityType String @map("entity_type")
+  entityId String @map("entity_id")
+  correlationId String? @map("correlation_id")
+  metadata Json?
+  createdAt DateTime @default(now()) @map("created_at")
   @@index([entityType, entityId, createdAt])
   @@index([action, createdAt])
   @@index([correlationId])
   @@map("audit_log")
 }
 
-/// Embedding smoke-test table: validates the pgvector column type, the chosen
-/// distance metric and the HNSW index before Smart Memory is built in M3.
 model VectorProbe {
-  id        String                       @id @default(uuid()) @db.Uuid
-  label     String
+  id String @id @default(uuid()) @db.Uuid
+  label String
   embedding Unsupported("vector(1536)")?
-  createdAt DateTime                     @default(now()) @map("created_at")
-
+  createdAt DateTime @default(now()) @map("created_at")
   @@map("vector_probe")
 }
