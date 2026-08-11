@@ -161,6 +161,7 @@ model SourceItem {
   updatedAt DateTime @updatedAt @map("updated_at")
   source Source @relation(fields: [sourceId], references: [id], onDelete: Restrict)
   images SourceImage[]
+  imageCandidates ImageCandidate[]
   ideas ContentIdea[]
   storyLinks StorySourceItem[]
   @@unique([sourceId, externalItemId])
@@ -176,6 +177,7 @@ model SourceImage {
   alt String?
   createdAt DateTime @default(now()) @map("created_at")
   sourceItem SourceItem @relation(fields: [sourceItemId], references: [id], onDelete: Cascade)
+  imageCandidate ImageCandidate?
   @@unique([sourceItemId, url])
   @@map("source_images")
 }
@@ -258,7 +260,7 @@ model StorySourceItem {
   @@map("story_source_items")
 }
 model StoryRelation {
-  id String @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @default(uuid()) @db.Uuid
   fromStoryId String @map("from_story_id") @db.Uuid
   toStoryId String @map("to_story_id") @db.Uuid
   type StoryRelationType
@@ -368,6 +370,8 @@ model ImageCandidate {
   selectionScore Float @default(0) @map("selection_score")
   selectedAt DateTime? @map("selected_at")
   createdAt DateTime @default(now()) @map("created_at")
+  sourceItem SourceItem @relation(fields: [sourceItemId], references: [id], onDelete: Restrict)
+  sourceImage SourceImage @relation(fields: [sourceImageId], references: [id], onDelete: Restrict)
   @@index([sourceItemId, validationStatus])
   @@map("image_candidates")
 }
