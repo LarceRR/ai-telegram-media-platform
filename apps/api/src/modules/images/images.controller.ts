@@ -8,8 +8,8 @@ export class ImagesController {
   constructor(private readonly prisma: PrismaService, private readonly selector: ImageSelectionService) {}
 
   @Post(':id/images/select')
-  async select(@Param('id') id: string, @Body() body: unknown, @Headers('x-actor-id') actor?: string) {
-    const item = await this.prisma.sourceItem.findUniqueOrThrow({ where: { id }, include: { images: true, source: { include: { channels: true } } } });
+  async select(@Param('id') id: string, @Body() body: Record<string, unknown>, @Headers('x-actor-id') actor?: string) {
+    const item = await this.prisma.sourceItem.findUniqueOrThrow({ where: { id }, include: { images: true } });
     const request = imageSelectionRequestSchema.parse({ ...body, sourceItemId: id });
     const candidates = request.candidates.filter((candidate) => item.images.some((image) => image.id === candidate.sourceImageId));
     const result = this.selector.select(candidates);
