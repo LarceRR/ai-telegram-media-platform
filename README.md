@@ -2,21 +2,24 @@
 
 An automated editorial system for Telegram channels: **Find -> Understand -> Verify -> Create -> Judge -> Publish -> Measure -> Learn.**
 
-## Status
+## Quick start
 
-**M2 Sources and ingestion: complete.** [PR #7](https://github.com/LarceRR/ai-telegram-media-platform/pull/7) delivers RSS/web adapters, hardened SSRF controls, cursoring, normalized persistence, deduplication, health snapshots, per-source failure isolation and the source management UI. ADR-005 is accepted.
+Requirements: Node.js 20+, pnpm 9+, Docker Desktop (for PostgreSQL/Redis/MinIO).
 
-M1 Channels and access remains shipped. M3 Content intelligence is next.
+```powershell
+pnpm install
+pnpm infra:up
+pnpm dev:api
+```
 
-## Stack
+`pnpm dev:api` is the canonical API command. It builds shared packages in watch mode, generates Prisma only when `prisma/schema.prisma` changed, and starts Nest watch mode. Do not run Prisma generate manually while the API is running.
 
-TypeScript everywhere. NestJS modular monolith (REST API plus worker mode), Next.js admin UI, PostgreSQL + Prisma + pgvector, Redis + BullMQ, Pino, Zod.
+If Windows reports `EPERM` for `query_engine-windows.dll.node`, the old Node process still owns the engine. Press `Ctrl+C` in the old terminal, wait a second, then rerun `pnpm dev:api`. The normal command does not require deleting dependencies or downloading anything again.
 
-## Ground rules
+Other commands:
 
-- Domain and application code never import provider SDKs directly.
-- Every job has a deterministic idempotency key.
-- Every machine-consumed output is schema-validated.
-- Secrets live in the environment or a secret manager, never in Git, logs, frontend bundles or unnecessary database fields.
-
-See [docs/m2-sources-ingestion.md](./docs/m2-sources-ingestion.md), [docs/adr/0005-source-adapter-architecture-and-ssrf-controls.md](./docs/adr/0005-source-adapter-architecture-and-ssrf-controls.md) and the [M2 PR](https://github.com/LarceRR/ai-telegram-media-platform/pull/7).
+```powershell
+pnpm dev:web
+pnpm dev:worker
+pnpm prisma:studio
+```

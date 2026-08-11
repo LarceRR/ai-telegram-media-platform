@@ -27,25 +27,37 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://atmp@localhost:5432/atmp_test?schema=public
       REDIS_URL: redis://localhost:6379
+      OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
+      OPENROUTER_APP_NAME: ci
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20.18.0'
-      - name: Run backend tests
+      - name: Run backend diagnostics
         continue-on-error: true
         run: |
           exec >/tmp/backend.log 2>&1
+          set +e
           pnpm install --no-frozen-lockfile
-          pnpm build || true
-          pnpm prisma:deploy || true
-          pnpm test:int || true
-          pnpm test || true
+          echo '===== workspace typecheck ====='
+          pnpm typecheck
+          echo '===== API typecheck ====='
+          pnpm --filter @atmp/api typecheck
+          echo '===== build ====='
+          pnpm build
+          echo '===== migrations ====='
+          pnpm prisma:deploy
+          echo '===== integration tests ====='
+          pnpm test:int
+          echo '===== unit tests ====='
+          pnpm test
+          exit 0
       - name: Report
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          { echo '### backend diagnostics'; echo '```text'; tail -c 60000 /tmp/backend.log; echo '```'; } >/tmp/body.md
+          { echo '### backend diagnostics'; echo 'TypeScript watch-mode equivalent: workspace and API typechecks run before build.'; echo '```text'; tail -c 60000 /tmp/backend.log; echo '```'; } >/tmp/body.md
           gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/body.md

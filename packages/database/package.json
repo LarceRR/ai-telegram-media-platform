@@ -5,12 +5,9 @@
   "main": "generated/client/index.js",
   "types": "generated/client/index.d.ts",
   "scripts": {
-    "build": "prisma generate --schema ../../prisma/schema.prisma"
+    "build": "node ../../scripts/generate-prisma.mjs",
+    "generate": "node ../../scripts/generate-prisma.mjs"
   },
-  "dependencies": {
-    "@prisma/client": "^5.22.0"
-  },
-  "devDependencies": {
-    "prisma": "^5.22.0"
-  }
+  "dependencies": { "@prisma/client": "^5.22.0" },
+  "devDependencies": { "prisma": "^5.22.0" }
 }
