@@ -11,8 +11,9 @@ import { AIModule } from '../modules/ai/ai.module';
 import { SourcesModule } from '../modules/sources/sources.module';
 import { SystemModule } from '../modules/system/system.module';
 import { ImagesModule } from '../modules/images/images.module';
+import { ModerationModule } from '../modules/moderation/moderation.module';
 
-@Module({ imports: [ConfigModule, InfrastructureModule, SystemModule, AccessModule, ChannelsModule, SourcesModule, MemoryModule, ContentIntelligenceModule, AIModule, ImagesModule] })
+@Module({ imports: [ConfigModule, InfrastructureModule, SystemModule, AccessModule, ChannelsModule, SourcesModule, MemoryModule, ContentIntelligenceModule, AIModule, ImagesModule, ModerationModule] })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(CorrelationIdMiddleware).forRoutes('*');
