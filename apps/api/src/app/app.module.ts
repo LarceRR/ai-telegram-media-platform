@@ -13,8 +13,9 @@ import { SystemModule } from '../modules/system/system.module';
 import { ImagesModule } from '../modules/images/images.module';
 import { ModerationModule } from '../modules/moderation/moderation.module';
 import { PostsModule } from '../modules/posts/posts.module';
+import { QualityGateModule } from '../modules/quality-gate/quality-gate.module';
 
-@Module({ imports: [ConfigModule, InfrastructureModule, SystemModule, AccessModule, ChannelsModule, SourcesModule, MemoryModule, ContentIntelligenceModule, AIModule, ImagesModule, ModerationModule, PostsModule] })
+@Module({ imports: [ConfigModule, InfrastructureModule, SystemModule, AccessModule, ChannelsModule, SourcesModule, MemoryModule, ContentIntelligenceModule, AIModule, ImagesModule, ModerationModule, PostsModule, QualityGateModule] })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void { consumer.apply(CorrelationIdMiddleware).forRoutes('*'); }
 }
