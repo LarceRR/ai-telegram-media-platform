@@ -5,6 +5,7 @@ import { CorrelationIdMiddleware } from '../common/correlation-id.middleware';
 import { InfrastructureModule } from '../infrastructure/infrastructure.module';
 import { AccessModule } from '../modules/access/access.module';
 import { ChannelsModule } from '../modules/channels/channels.module';
+import { MemoryModule } from '../modules/memory/memory.module';
 import { SourcesModule } from '../modules/sources/sources.module';
 import { SystemModule } from '../modules/system/system.module';
 @Module({
@@ -15,6 +16,7 @@ import { SystemModule } from '../modules/system/system.module';
     AccessModule,
     ChannelsModule,
     SourcesModule,
+    MemoryModule,
   ],
 })
 export class AppModule implements NestModule {

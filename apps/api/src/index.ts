@@ -27,3 +27,12 @@ export type {
   SourceRateLimit,
 } from './modules/sources/domain/source-adapter';
 export { SourceIntegrationError } from './modules/sources/domain/source-errors';
+export { MemoryModule } from './modules/memory/memory.module';
+export { EMBEDDING_PROVIDER } from './modules/memory/infrastructure/memory.tokens';
+export { HashedEmbeddingProvider } from './modules/memory/infrastructure/hashed-embedding.provider';
+export {
+  cosineSimilarity,
+  similarityFromDistance,
+  type EmbeddingProvider,
+  type EmbeddingVector,
+} from './modules/memory/domain/embedding';

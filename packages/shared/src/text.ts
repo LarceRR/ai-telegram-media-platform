@@ -9,16 +9,29 @@ import { createHash } from 'node:crypto';
  * one shared place instead of being reimplemented per module.
  */
 
+/**
+ * Function words carry no topical signal but dominate frequency counts. Left in,
+ * they would become "topics" and would inflate similarity between unrelated
+ * articles, which is the failure mode that blocks legitimate content.
+ */
 const STOPWORDS: ReadonlySet<string> = new Set([
-  'a', 'об', 'об', 'an', 'and', 'are', 'as', 'at', 'be', 'been', 'but', 'by', 'can', 'for',
-  'from', 'had', 'has', 'have', 'her', 'his', 'how', 'its', 'not', 'now', 'off', 'one',
-  'our', 'out', 'she', 'that', 'the', 'their', 'them', 'then', 'they', 'this', 'those',
-  'was', 'were', 'what', 'when', 'which', 'who', 'will', 'with', 'you', 'your',
-  'без', 'был', 'была', 'были', 'было', 'быть', 'вам', 'вас', 'ведь', 'весь', 'вот',
-  'все', 'всех', 'где', 'даже', 'для', 'его', 'ему', 'если', 'есть', 'еще', '같',
-  'или', 'как', 'кто', 'меня', 'может', 'над', 'надо', 'наш', 'него', 'нее', 'ней',
-  'нет', 'них', 'ничего', 'потом', 'потому', 'при', 'про', 'себя', 'сейчас', 'так',
-  'такой', 'там', 'тем', 'тоже', 'тот', 'тут', 'уже', 'чего', 'чем', 'что', 'чтобы',
+  'about', 'after', 'again', 'against', 'all', 'also', 'an', 'and', 'any', 'are', 'as', 'at',
+  'be', 'because', 'been', 'before', 'being', 'between', 'both', 'but', 'by', 'can', 'could',
+  'did', 'do', 'does', 'down', 'during', 'each', 'few', 'for', 'from', 'further', 'had', 'has',
+  'have', 'he', 'her', 'here', 'hers', 'him', 'his', 'how', 'if', 'in', 'into', 'is', 'it',
+  'its', 'just', 'may', 'me', 'might', 'more', 'most', 'must', 'my', 'no', 'nor', 'not', 'now',
+  'of', 'off', 'on', 'once', 'only', 'or', 'other', 'our', 'out', 'over', 'own', 'said', 'same',
+  'she', 'should', 'so', 'some', 'such', 'than', 'that', 'the', 'their', 'them', 'then',
+  'there', 'these', 'they', 'this', 'those', 'through', 'to', 'too', 'under', 'until', 'up',
+  'very', 'was', 'we', 'were', 'what', 'when', 'where', 'which', 'while', 'who', 'whom', 'why',
+  'will', 'with', 'would', 'you', 'your',
+  'без', 'бы', 'был', 'была', 'были', 'было', 'быть', 'вам', 'вас', 'ведь', 'весь', 'вот',
+  'все', 'всех', 'где', 'да', 'даже', 'для', 'до', 'его', 'ее', 'ей', 'ему', 'если', 'есть',
+  'еще', 'же', 'за', 'из', 'или', 'им', 'их', 'как', 'кто', 'ли', 'меня', 'мне', 'может',
+  'мы', 'на', 'над', 'надо', 'наш', 'не', 'него', 'нее', 'ней', 'нет', 'ни', 'них', 'но',
+  'ничего', 'ну', 'об', 'од', 'он', 'она', 'они', 'от', 'очень', 'по', 'под', 'после',
+  'потом', 'потому', 'при', 'про', 'себя', 'сейчас', 'со', 'так', 'такой', 'там', 'те',
+  'тем', 'то', 'тоже', 'только', 'тот', 'тут', 'ты', 'уже', 'чего', 'чем', 'что', 'чтобы',
   'эта', 'эти', 'это', 'этого', 'этом', 'этот',
 ]);
 
