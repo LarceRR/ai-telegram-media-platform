@@ -9,3 +9,4 @@ export * from './ai';
 export * from './research';
 export * from './writing';
 export * from './scoring';
+export * from './images';
