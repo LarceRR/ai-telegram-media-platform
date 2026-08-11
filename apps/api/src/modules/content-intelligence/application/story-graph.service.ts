@@ -21,10 +21,11 @@ export class StoryGraphService {
       const overlap = jaccard([...input.entities, ...input.topics], [...story.entities, ...story.topics]);
       if (overlap > bestOverlap) { best = story; bestOverlap = overlap; }
     }
-    const sameStory = best && bestOverlap >= 0.34;
+    const matchedStory = best;
+    const sameStory = matchedStory !== undefined && bestOverlap >= 0.34;
     const story = sameStory ? await this.prisma.story.update({
-      where: { id: best.id },
-      data: { lastSeenAt: new Date(), itemCount: { increment: 1 }, entities: union(best.entities, input.entities), topics: union(best.topics, input.topics), summary: input.summary },
+      where: { id: matchedStory.id },
+      data: { lastSeenAt: new Date(), itemCount: { increment: 1 }, entities: union(matchedStory.entities, input.entities), topics: union(matchedStory.topics, input.topics), summary: input.summary },
     }) : await this.prisma.story.create({
       data: { channelId: input.channelId, title: input.title, summary: input.summary, entities: [...input.entities], topics: [...input.topics], itemCount: 1 },
     });
@@ -33,8 +34,6 @@ export class StoryGraphService {
     await this.prisma.storySourceItem.upsert({ where: { storyId_sourceItemId: { storyId: story.id, sourceItemId: sourceItem.sourceItemId } }, create: { storyId: story.id, sourceItemId: sourceItem.sourceItemId }, update: {} });
     if (!sameStory) return { storyId: story.id, relation: null, confidence: 1 };
     const relation: StoryRelationType = input.decision === 'UPDATE' ? 'UPDATE' : input.decision === 'RELATED' ? 'RELATED' : 'CONTINUATION';
-    const prior = best;
-    if (prior && prior.id !== story.id) await this.prisma.storyRelation.upsert({ where: { fromStoryId_toStoryId_type: { fromStoryId: story.id, toStoryId: prior.id, type: relation } }, create: { fromStoryId: story.id, toStoryId: prior.id, type: relation, method: 'RULE', confidence: bestOverlap, evidence: { entityTopicOverlap: bestOverlap } }, update: { confidence: bestOverlap, evidence: { entityTopicOverlap: bestOverlap } } });
     return { storyId: story.id, relation, confidence: bestOverlap };
   }
 }
