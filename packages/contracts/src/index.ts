@@ -11,3 +11,4 @@ export * from './writing';
 export * from './scoring';
 export * from './images';
 export * from './moderation';
+export * from './quality-gate';
