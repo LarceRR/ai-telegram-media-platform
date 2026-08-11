@@ -4,17 +4,8 @@ import { InfrastructureModule } from '../infrastructure/infrastructure.module';
 import { SystemModule } from '../modules/system/system.module';
 import { AccessModule } from '../modules/access/access.module';
 import { ChannelsModule } from '../modules/channels/channels.module';
+import { ContentIntelligenceModule } from '../modules/content-intelligence/content-intelligence.module';
 import { MemoryModule } from '../modules/memory/memory.module';
 import { SourcesModule } from '../modules/sources/sources.module';
-@Module({
-  imports: [
-    ConfigModule,
-    InfrastructureModule,
-    SystemModule,
-    AccessModule,
-    ChannelsModule,
-    SourcesModule,
-    MemoryModule,
-  ],
-})
+@Module({ imports: [ConfigModule, InfrastructureModule, SystemModule, AccessModule, ChannelsModule, SourcesModule, MemoryModule, ContentIntelligenceModule] })
 export class WorkerModule {}
