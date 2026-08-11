@@ -10,3 +10,4 @@ export * from './research';
 export * from './writing';
 export * from './scoring';
 export * from './images';
+export * from './moderation';
