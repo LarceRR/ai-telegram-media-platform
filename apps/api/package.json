@@ -5,10 +5,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "predev": "pnpm --filter @atmp/database build",
     "dev": "nest start --watch",
-    "start": "node dist/main.js",
+    "prebuild": "pnpm --filter @atmp/database build",
+    "build": "tsc -p tsconfig.build.json",
+    "pretypecheck": "pnpm --filter @atmp/database build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/main.js",
     "test": "jest -c jest.config.js",
     "test:int": "jest -c jest.integration.config.js --runInBand"
   },
