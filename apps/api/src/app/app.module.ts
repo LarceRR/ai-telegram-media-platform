@@ -10,5 +10,11 @@ import { MemoryModule } from '../modules/memory/memory.module';
 import { AIModule } from '../modules/ai/ai.module';
 import { SourcesModule } from '../modules/sources/sources.module';
 import { SystemModule } from '../modules/system/system.module';
-@Module({ imports: [ConfigModule, InfrastructureModule, SystemModule, AccessModule, ChannelsModule, SourcesModule, MemoryModule, ContentIntelligenceModule, AIModule] })
-export class AppModule implements NestModule { configure(consumer: MiddlewareConsumer): void { consumer.apply(CorrelationIdMiddleware).forRoutes('*'); } }
+import { ImagesModule } from '../modules/images/images.module';
+
+@Module({ imports: [ConfigModule, InfrastructureModule, SystemModule, AccessModule, ChannelsModule, SourcesModule, MemoryModule, ContentIntelligenceModule, AIModule, ImagesModule] })
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+  }
+}
