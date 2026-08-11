@@ -28,8 +28,22 @@ export type {
 } from './modules/sources/domain/source-adapter';
 export { SourceIntegrationError } from './modules/sources/domain/source-errors';
 export { MemoryModule } from './modules/memory/memory.module';
+export { MemoryService } from './modules/memory/application/memory.service';
+export type {
+  ClassifyOptions,
+  MemorySubject,
+  RecordDecisionInput,
+} from './modules/memory/application/memory.service';
+export { MemoryRepository } from './modules/memory/infrastructure/memory.repository';
 export { EMBEDDING_PROVIDER } from './modules/memory/infrastructure/memory.tokens';
 export { HashedEmbeddingProvider } from './modules/memory/infrastructure/hashed-embedding.provider';
+export {
+  classifyCandidate,
+  type ClassificationContext,
+  type ExactMatch,
+  type MemoryCandidate,
+  type MemoryNeighbour,
+} from './modules/memory/domain/memory-classifier';
 export {
   cosineSimilarity,
   similarityFromDistance,
