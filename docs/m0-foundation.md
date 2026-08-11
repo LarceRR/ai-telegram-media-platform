@@ -51,25 +51,25 @@ action `system.health_probe.processed`.
 
 ## Acceptance checklist
 
-| Criterion | Status |
-| --- | --- |
-| No Python / FastAPI / Celery anywhere in the repo | done |
-| pnpm workspace with apps + packages and enforced boundaries | done |
-| NestJS API boots with global prefix, validation, helmet, CORS allowlist | done |
-| Worker runs the same codebase as a separate process | done |
-| Prisma migration applies and installs pgvector | done |
-| Vector column, cosine operator and HNSW index verified by test | done |
-| Redis + BullMQ queue set defined with a policy per queue | done |
-| Deterministic idempotency keys defined for every critical stage | done |
-| Typed configuration fails fast on invalid env | done |
-| Pino structured logs with correlation IDs and secret redaction | done |
-| Consistent error envelope across the REST surface | done |
-| Health, readiness, metrics and config diagnostics endpoints | done |
-| Graceful shutdown drains workers and stops accepting jobs | done |
-| Append-only audit log written by both API and worker | done |
-| Docker Compose provides postgres, redis and S3-compatible storage | done |
-| CI runs lint, format, typecheck, unit, integration, build, audit | done |
-| Next.js admin shell reads live readiness and queue depth | done |
+| Criterion                                                               | Status |
+| ----------------------------------------------------------------------- | ------ |
+| No Python / FastAPI / Celery anywhere in the repo                       | done   |
+| pnpm workspace with apps + packages and enforced boundaries             | done   |
+| NestJS API boots with global prefix, validation, helmet, CORS allowlist | done   |
+| Worker runs the same codebase as a separate process                     | done   |
+| Prisma migration applies and installs pgvector                          | done   |
+| Vector column, cosine operator and HNSW index verified by test          | done   |
+| Redis + BullMQ queue set defined with a policy per queue                | done   |
+| Deterministic idempotency keys defined for every critical stage         | done   |
+| Typed configuration fails fast on invalid env                           | done   |
+| Pino structured logs with correlation IDs and secret redaction          | done   |
+| Consistent error envelope across the REST surface                       | done   |
+| Health, readiness, metrics and config diagnostics endpoints             | done   |
+| Graceful shutdown drains workers and stops accepting jobs               | done   |
+| Append-only audit log written by both API and worker                    | done   |
+| Docker Compose provides postgres, redis and S3-compatible storage       | done   |
+| CI runs lint, format, typecheck, unit, integration, build, audit        | done   |
+| Next.js admin shell reads live readiness and queue depth                | done   |
 
 ## Open questions carried into M1
 

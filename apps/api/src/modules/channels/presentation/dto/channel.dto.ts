@@ -1,4 +1,16 @@
-import { IsArray, IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class CreateChannelDto {
   @IsString() @MinLength(1) @MaxLength(200) telegramId!: string;
@@ -31,7 +43,11 @@ export class UpdateSettingsDto {
 }
 export class AddMemberDto {
   @IsString() @MinLength(1) userId!: string;
-  @IsIn(['OWNER', 'EDITOR', 'OPERATOR', 'VIEWER']) role!: 'OWNER' | 'EDITOR' | 'OPERATOR' | 'VIEWER';
+  @IsIn(['OWNER', 'EDITOR', 'OPERATOR', 'VIEWER']) role!:
+    | 'OWNER'
+    | 'EDITOR'
+    | 'OPERATOR'
+    | 'VIEWER';
 }
 export class CredentialRefDto {
   @IsString() @MinLength(1) @MaxLength(300) secretRef!: string;

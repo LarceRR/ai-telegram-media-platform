@@ -10,14 +10,12 @@ const booleanish = z
   .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
   .transform((value) => value === true || value === 'true' || value === '1');
 
-const csv = z
-  .string()
-  .transform((value) =>
-    value
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter(Boolean),
-  );
+const csv = z.string().transform((value) =>
+  value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean),
+);
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -72,5 +70,7 @@ export function loadEnv(options: { reload?: boolean } = {}): AppEnv {
 }
 
 export function isStorageConfigured(env: AppEnv): boolean {
-  return Boolean(env.S3_ENDPOINT && env.S3_BUCKET && env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY);
+  return Boolean(
+    env.S3_ENDPOINT && env.S3_BUCKET && env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY,
+  );
 }

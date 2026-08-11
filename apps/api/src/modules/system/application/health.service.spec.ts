@@ -14,13 +14,15 @@ const env = {
   SHUTDOWN_TIMEOUT_MS: 15000,
 } as unknown as AppEnv;
 
-function build(overrides: {
-  ping?: () => Promise<void>;
-  hasVector?: () => Promise<boolean>;
-  redisPing?: () => Promise<void>;
-  storageConfigured?: boolean;
-  headBucket?: () => Promise<void>;
-} = {}) {
+function build(
+  overrides: {
+    ping?: () => Promise<void>;
+    hasVector?: () => Promise<boolean>;
+    redisPing?: () => Promise<void>;
+    storageConfigured?: boolean;
+    headBucket?: () => Promise<void>;
+  } = {},
+) {
   const prisma = {
     ping: overrides.ping ?? (async () => undefined),
     hasVectorExtension: overrides.hasVector ?? (async () => true),
@@ -81,7 +83,9 @@ describe('HealthService', () => {
     const readiness = await build({ storageConfigured: false }).readiness();
 
     expect(readiness.status).toBe('degraded');
-    expect(readiness.checks.find((check) => check.name === 'object-storage')?.status).toBe('skipped');
+    expect(readiness.checks.find((check) => check.name === 'object-storage')?.status).toBe(
+      'skipped',
+    );
   });
 
   it('exposes queue depths and never leaks secrets in the config snapshot', async () => {

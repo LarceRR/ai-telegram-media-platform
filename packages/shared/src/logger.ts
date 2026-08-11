@@ -24,7 +24,11 @@ export interface CreateLoggerOptions {
   pretty?: boolean;
 }
 
-export function createLogger({ service, level = 'info', pretty = false }: CreateLoggerOptions): Logger {
+export function createLogger({
+  service,
+  level = 'info',
+  pretty = false,
+}: CreateLoggerOptions): Logger {
   const options: LoggerOptions = {
     level,
     base: { service, pid: process.pid },
