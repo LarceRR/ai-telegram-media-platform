@@ -1,6 +1,5 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { createHash } from 'node:crypto';
 import type { SourceItemPayload } from '@atmp/contracts';
 
 export interface SourceAdapterConfig {
@@ -72,9 +71,6 @@ function clean(value: string): string {
 function tag(xml: string, name: string): string {
   const match = xml.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i'));
   return match ? clean(match[1] ?? '') : '';
-}
-function hash(text: string): string {
-  return createHash('sha256').update(text.trim().toLowerCase().replace(/\s+/g, ' ')).digest('hex');
 }
 export class RssSourceAdapter implements SourceAdapter {
   async fetch(config: SourceAdapterConfig): Promise<SourceItemPayload[]> {

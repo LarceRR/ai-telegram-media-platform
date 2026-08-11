@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ChannelMemberRole, Prisma } from '@atmp/database';
+import { ChannelMemberRole } from '@atmp/database';
 import type { IngestSourceJob, SourceResponse } from '@atmp/contracts';
 import { AppError } from '@atmp/shared';
 import { createHash } from 'node:crypto';
