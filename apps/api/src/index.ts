@@ -12,7 +12,8 @@ export { HardenedHttpClient } from './modules/sources/infrastructure/http/harden
 export type { HttpRequestOptions, HttpResponse, SafeHttpClient } from './modules/sources/domain/safe-http-client';
 export type { SourceAdapter, SourceFetchResult, SourceHealthReport, SourceRateLimit } from './modules/sources/domain/source-adapter';
 export { SourceIntegrationError } from './modules/sources/domain/source-errors';
-export { MemoryModule, MemoryService } from './modules/memory/memory.module';
+export { MemoryModule } from './modules/memory/memory.module';
+export { MemoryService } from './modules/memory/application/memory.service';
 export { MemoryRepository } from './modules/memory/infrastructure/memory.repository';
 export { EMBEDDING_PROVIDER } from './modules/memory/infrastructure/memory.tokens';
 export { HashedEmbeddingProvider } from './modules/memory/infrastructure/hashed-embedding.provider';
