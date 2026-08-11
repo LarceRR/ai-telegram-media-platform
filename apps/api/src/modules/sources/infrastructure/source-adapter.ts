@@ -20,7 +20,9 @@ function assertSafeUrl(value: string): URL {
 }
 function privateIp(ip: string): boolean {
   if (isIP(ip) === 4) {
-    const [a, b] = ip.split('.').map(Number);
+    const octets = ip.split('.').map(Number);
+    const a = octets[0] ?? -1;
+    const b = octets[1] ?? -1;
     return (
       a === 10 ||
       a === 127 ||
@@ -69,7 +71,7 @@ function clean(value: string): string {
 }
 function tag(xml: string, name: string): string {
   const match = xml.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i'));
-  return match ? clean(match[1]) : '';
+  return match ? clean(match[1] ?? '') : '';
 }
 function hash(text: string): string {
   return createHash('sha256').update(text.trim().toLowerCase().replace(/\s+/g, ' ')).digest('hex');
@@ -115,7 +117,7 @@ export class WebSourceAdapter implements SourceAdapter {
       clean(
         [...body.matchAll(/<(?:article|main|p)\b[^>]*>([\s\S]*?)<\/(?:article|main|p)>/gi)]
           .slice(0, 40)
-          .map((m) => m[1])
+          .map((m) => m[1] ?? '')
           .join(' '),
       );
     const canonicalUrl = new URL(

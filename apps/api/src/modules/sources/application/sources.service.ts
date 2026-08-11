@@ -28,11 +28,8 @@ export class SourcesService {
     const row = user
       ? await this.prisma.channelMember.findFirst({ where: { channelId, userId: user.id } })
       : null;
-    if (
-      !row ||
-      (role === ChannelMemberRole.EDITOR &&
-        ![ChannelMemberRole.OWNER, ChannelMemberRole.EDITOR].includes(row.role))
-    )
+    const writeRoles: ChannelMemberRole[] = [ChannelMemberRole.OWNER, ChannelMemberRole.EDITOR];
+    if (!row || (role === ChannelMemberRole.EDITOR && !writeRoles.includes(row.role)))
       throw new AppError('FORBIDDEN', 'Channel access denied');
     return user!;
   }
