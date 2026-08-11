@@ -6,6 +6,5 @@ export const moderationActionSchema = z.object({
   expectedVersion: z.number().int().positive().optional(),
 });
 export type ModerationAction = z.infer<typeof moderationActionSchema>;
-
 export const moderationStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'REGENERATION_REQUESTED']);
 export type ModerationStatus = z.infer<typeof moderationStatusSchema>;
