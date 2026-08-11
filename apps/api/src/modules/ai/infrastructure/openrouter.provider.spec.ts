@@ -1,6 +1,5 @@
 import type { AppEnv } from '@atmp/config';
 import { OpenRouterProvider } from './openrouter.provider';
-import { AIProviderError } from '../domain/ai-provider';
 
 const env = { OPENROUTER_API_KEY: 'secret', OPENROUTER_BASE_URL: 'https://openrouter.test/api/v1', OPENROUTER_APP_NAME: 'test', OPENROUTER_SITE_URL: undefined } as unknown as AppEnv;
 const request = { taskType: 'WRITING' as const, model: 'test-model', promptVersion: 'writing-v1', systemPrompt: 'json', userPrompt: 'write', responseSchema: 'draft-v1', temperature: 0, maxTokens: 100, timeoutMs: 1000, correlationId: '3f0f8f6a-2b1a-4f3e-9b5c-7d8e9f0a1b2c' };
