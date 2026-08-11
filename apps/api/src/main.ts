@@ -26,7 +26,13 @@ async function bootstrap(): Promise<void> {
   app.enableCors({
     origin: env.CORS_ALLOWED_ORIGINS,
     credentials: true,
-    allowedHeaders: ['content-type', 'authorization', CORRELATION_ID_HEADER],
+    allowedHeaders: [
+      'content-type',
+      'authorization',
+      'x-user-id',
+      'x-actor-id',
+      CORRELATION_ID_HEADER,
+    ],
     exposedHeaders: [CORRELATION_ID_HEADER],
   });
   app.setGlobalPrefix(env.API_GLOBAL_PREFIX);
