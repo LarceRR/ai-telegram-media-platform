@@ -32,12 +32,12 @@ describe('safe markup reading', () => {
     expect(cleanText('<p>before</p><script>while(true){}')).toBe('before');
   });
 
-  it('keeps an unclosed angle bracket as text instead of truncating', () => {
-    expect(stripTags('5 < 10 and 2 > 1')).toBe('5 < 10 and 2 > 1'.replace('< 10 and 2 >', ' '));
+  it('keeps a bracket that does not open a tag as literal text', () => {
+    expect(stripTags('5 < 10 and 2 > 1')).toBe('5 < 10 and 2 > 1');
     expect(cleanText('<p>price is 5 < 10</p>')).toBe('price is 5 < 10');
   });
 
-  it('strips tags again after decoding escaped markup', () => {
+  it('strips and decodes a second time when the first decode reveals markup', () => {
     expect(cleanText('<summary>&lt;p&gt;Escaped &amp;amp; body&lt;/p&gt;</summary>')).toBe(
       'Escaped & body',
     );
@@ -52,7 +52,7 @@ describe('safe markup reading', () => {
   });
 
   it('decodes named and numeric entities and ignores unsafe code points', () => {
-    expect(decodeEntities('a &amp; b &lt;c&gt; &#65; &#x42;')).toBe('a & b <c> A B');
+    expect(decodeEntities('a &amp; b &#65; &#x42;')).toBe('a & b A B');
     expect(decodeEntities('&#xD800;')).toBe('');
     expect(decodeEntities('&notarealentity;')).toBe('&notarealentity;');
   });

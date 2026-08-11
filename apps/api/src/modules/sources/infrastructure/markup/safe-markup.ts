@@ -23,6 +23,9 @@ const HIDDEN_BLOCK_TAGS = [
 
 const NAME_BOUNDARIES: ReadonlySet<string> = new Set(['>', '/', ' ', '\t', '\n', '\r', '\f']);
 
+/** A `<` only opens a tag when a name, closing slash or declaration follows. */
+const TAG_START = /[a-zA-Z!?/]/;
+
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   amp: '&',
   lt: '<',
@@ -218,23 +221,33 @@ export function unwrapCdata(markup: string): string {
  * Replaces every complete tag with a single space.
  *
  * Hand-rolled instead of `/<[^>]*>/g`: that pattern backtracks across the whole
- * remaining string for each unclosed `<`, which is quadratic on input designed
- * to trigger it. An unclosed `<` is kept as literal text, so prose like
- * "5 < 10" is not silently truncated.
+ * remaining string for every unclosed `<`, which is quadratic on input designed
+ * to trigger it. A `<` that does not open a tag stays literal text, so prose
+ * like "5 < 10" survives intact.
  */
 export function stripTags(markup: string): string {
   let output = '';
   let index = 0;
   let guard = 0;
+
   while (guard < MAX_ITERATIONS) {
     guard += 1;
     const start = markup.indexOf('<', index);
     if (start === -1) break;
+
+    if (!TAG_START.test(markup.charAt(start + 1))) {
+      output += markup.slice(index, start + 1);
+      index = start + 1;
+      continue;
+    }
+
     const end = markup.indexOf('>', start + 1);
     if (end === -1) break;
+
     output += `${markup.slice(index, start)} `;
     index = end + 1;
   }
+
   return output + markup.slice(index);
 }
 
@@ -262,13 +275,13 @@ export function collapseWhitespace(value: string): string {
 /**
  * Markup in, plain readable text out. Hidden blocks never contribute.
  *
- * Feeds routinely ship HTML escaped inside an XML element, so tags are stripped
- * once, entities decoded, and tags stripped again if the decode revealed more.
+ * Feeds routinely ship HTML escaped inside an XML element, so the pipeline runs
+ * a second strip-and-decode pass when the first one revealed more markup.
  */
 export function cleanText(markup: string): string {
   const visible = stripHiddenBlocks(stripComments(unwrapCdata(markup)));
   const once = decodeEntities(stripTags(visible));
-  const twice = once.includes('<') ? stripTags(stripHiddenBlocks(once)) : once;
+  const twice = once.includes('<') ? decodeEntities(stripTags(stripHiddenBlocks(once))) : once;
   return collapseWhitespace(twice);
 }
 
