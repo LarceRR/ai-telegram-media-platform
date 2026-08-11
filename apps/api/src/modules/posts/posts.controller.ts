@@ -5,5 +5,5 @@ import { PostsService } from './posts.service';
 export class PostsController {
   constructor(private readonly posts: PostsService) {}
   @Get(':id') get(@Param('id') id: string, @Headers('x-actor-id') actorId?: string) { return this.posts.get(id, actorId ?? ''); }
-  @Patch(':id') edit(@Param('id') id: string, @Headers('x-actor-id') actorId?: string, @Body() body: { body?: string; source?: string }) { return this.posts.edit(id, actorId ?? '', body.body ?? '', body.source ?? 'HUMAN'); }
+  @Patch(':id') edit(@Param('id') id: string, @Body() body: { body?: string; source?: string }, @Headers('x-actor-id') actorId?: string) { return this.posts.edit(id, actorId ?? '', body.body ?? '', body.source ?? 'HUMAN'); }
 }
