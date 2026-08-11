@@ -15,51 +15,42 @@ enum AuditActorType {
   SYSTEM
   AI
 }
-
 enum UserStatus {
   ACTIVE
   DISABLED
 }
-
 enum ChannelMode {
   MODERATED
   AUTO
 }
-
 enum ChannelStatus {
   ACTIVE
   PAUSED
   ARCHIVED
 }
-
 enum ChannelMemberRole {
   OWNER
   EDITOR
   OPERATOR
   VIEWER
 }
-
 enum CredentialProvider {
   TELEGRAM_BOT
 }
-
 enum SourceType {
   RSS
   WEB
 }
-
 enum SourceStatus {
   ACTIVE
   PAUSED
   DISABLED
 }
-
 enum SourceHealthStatus {
   HEALTHY
   DEGRADED
   FAILED
 }
-
 enum ContentIdeaStatus {
   DISCOVERED
   ANALYZING
@@ -70,40 +61,34 @@ enum ContentIdeaStatus {
   REJECTED
   ARCHIVED
 }
-
 enum StoryStatus {
   ACTIVE
   ARCHIVED
 }
-
 enum StoryRelationType {
   RELATED
   UPDATE
   CONTINUATION
   DUPLICATE
 }
-
 enum MatchMethod {
   RULE
   VECTOR
   LLM
   HUMAN
 }
-
 enum MemoryDecision {
   NEW
   RELATED
   UPDATE
   DUPLICATE
 }
-
 enum MemoryItemKind {
   SOURCE_ITEM
   IDEA
   STORY
   PUBLICATION
 }
-
 enum MemoryItemState {
   ACTIVE
   PENDING
@@ -123,7 +108,6 @@ model User {
   @@index([status])
   @@map("users")
 }
-
 model Channel {
   id String @id @default(uuid()) @db.Uuid
   telegramId String @unique @map("telegram_id")
@@ -146,7 +130,6 @@ model Channel {
   @@index([status, createdAt])
   @@map("channels")
 }
-
 model ChannelSettings {
   id String @id @default(uuid()) @db.Uuid
   channelId String @unique @map("channel_id") @db.Uuid
@@ -171,7 +154,6 @@ model ChannelSettings {
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   @@map("channel_settings")
 }
-
 model ChannelMember {
   id String @id @default(uuid()) @db.Uuid
   channelId String @map("channel_id") @db.Uuid
@@ -185,7 +167,6 @@ model ChannelMember {
   @@index([userId, role])
   @@map("channel_members")
 }
-
 model SourceCredentialRef {
   id String @id @default(uuid()) @db.Uuid
   provider CredentialProvider
@@ -199,7 +180,6 @@ model SourceCredentialRef {
   @@index([provider])
   @@map("source_credential_refs")
 }
-
 model Source {
   id String @id @default(uuid()) @db.Uuid
   name String
@@ -219,7 +199,6 @@ model Source {
   @@index([status, updatedAt])
   @@map("sources")
 }
-
 model ChannelSource {
   id String @id @default(uuid()) @db.Uuid
   channelId String @map("channel_id") @db.Uuid
@@ -234,7 +213,6 @@ model ChannelSource {
   @@index([channelId, enabled, priority])
   @@map("channel_sources")
 }
-
 model SourceItem {
   id String @id @default(uuid()) @db.Uuid
   sourceId String @map("source_id") @db.Uuid
@@ -251,6 +229,7 @@ model SourceItem {
   updatedAt DateTime @updatedAt @map("updated_at")
   source Source @relation(fields: [sourceId], references: [id], onDelete: Restrict)
   images SourceImage[]
+  imageCandidates ImageCandidate[]
   ideas ContentIdea[]
   storyLinks StorySourceItem[]
   @@unique([sourceId, externalItemId])
@@ -259,7 +238,6 @@ model SourceItem {
   @@index([contentHash])
   @@map("source_items")
 }
-
 model SourceImage {
   id String @id @default(uuid()) @db.Uuid
   sourceItemId String @map("source_item_id") @db.Uuid
@@ -267,10 +245,10 @@ model SourceImage {
   alt String?
   createdAt DateTime @default(now()) @map("created_at")
   sourceItem SourceItem @relation(fields: [sourceItemId], references: [id], onDelete: Cascade)
+  imageCandidate ImageCandidate?
   @@unique([sourceItemId, url])
   @@map("source_images")
 }
-
 model SourceHealthSnapshot {
   id String @id @default(uuid()) @db.Uuid
   sourceId String @map("source_id") @db.Uuid
@@ -284,9 +262,6 @@ model SourceHealthSnapshot {
   @@index([sourceId, checkedAt])
   @@map("source_health_snapshots")
 }
-
-/// One candidate per channel and source item. The unique pair is what makes
-/// discovery re-runnable: a replayed batch updates instead of duplicating.
 model ContentIdea {
   id String @id @default(uuid()) @db.Uuid
   channelId String @map("channel_id") @db.Uuid
@@ -305,7 +280,6 @@ model ContentIdea {
   decisionMethod MatchMethod @default(RULE) @map("decision_method")
   decisionConfidence Float @default(0) @map("decision_confidence")
   decisionExplanation String? @map("decision_explanation")
-  /// Mandatory for REJECTED, enforced by a CHECK constraint in SQL.
   rejectionReason String? @map("rejection_reason")
   classifiedAt DateTime? @map("classified_at")
   createdAt DateTime @default(now()) @map("created_at")
@@ -320,9 +294,6 @@ model ContentIdea {
   @@index([storyId])
   @@map("content_ideas")
 }
-
-/// A canonical topic. Holds many items and many posts over time, which is why
-/// a later item can be an UPDATE rather than a duplicate.
 model Story {
   id String @id @default(uuid()) @db.Uuid
   channelId String @map("channel_id") @db.Uuid
@@ -345,7 +316,6 @@ model Story {
   @@index([channelId, status, lastSeenAt])
   @@map("stories")
 }
-
 model StorySourceItem {
   id String @id @default(uuid()) @db.Uuid
   storyId String @map("story_id") @db.Uuid
@@ -357,9 +327,6 @@ model StorySourceItem {
   @@index([sourceItemId])
   @@map("story_source_items")
 }
-
-/// Directed and typed, with the evidence that produced it. Confidence without
-/// a method is unauditable, so both are required.
 model StoryRelation {
   id String @id @default(uuid()) @db.Uuid
   fromStoryId String @map("from_story_id") @db.Uuid
@@ -376,10 +343,6 @@ model StoryRelation {
   @@index([toStoryId])
   @@map("story_relations")
 }
-
-/// Searchable long-lived representation. `refId` is intentionally not a foreign
-/// key: one table indexes several kinds, and memory must outlive what it points
-/// at so an archived idea can still block a duplicate.
 model MemoryItem {
   id String @id @default(uuid()) @db.Uuid
   channelId String @map("channel_id") @db.Uuid
@@ -394,8 +357,6 @@ model MemoryItem {
   topics String[] @default([])
   embeddingModel String @map("embedding_model")
   embeddingDim Int @map("embedding_dim")
-  /// pgvector column. Prisma cannot type it, so reads and writes go through
-  /// reviewed raw SQL in the memory infrastructure layer.
   embedding Unsupported("vector(1536)")?
   archivedAt DateTime? @map("archived_at")
   createdAt DateTime @default(now()) @map("created_at")
@@ -408,9 +369,6 @@ model MemoryItem {
   @@index([channelId, canonicalUrl])
   @@map("memory_items")
 }
-
-/// Append-only. Rejected and duplicate candidates are kept with the reason that
-/// produced them, because "why did it not publish" is an operational question.
 model MemoryDecisionLog {
   id String @id @default(uuid()) @db.Uuid
   channelId String @map("channel_id") @db.Uuid
@@ -433,9 +391,6 @@ model MemoryDecisionLog {
   @@index([decision, createdAt])
   @@map("memory_decisions")
 }
-
-/// Declares the embedding space an index was built for. A model or dimension
-/// change is then a visible migration instead of a silent recall regression.
 model EmbeddingIndexMetadata {
   id String @id @default(uuid()) @db.Uuid
   name String @unique
@@ -448,7 +403,6 @@ model EmbeddingIndexMetadata {
   updatedAt DateTime @updatedAt @map("updated_at")
   @@map("embedding_index_metadata")
 }
-
 model AuditLog {
   id String @id @default(uuid()) @db.Uuid
   actorType AuditActorType @map("actor_type")
@@ -464,11 +418,28 @@ model AuditLog {
   @@index([correlationId])
   @@map("audit_log")
 }
-
 model VectorProbe {
   id String @id @default(uuid()) @db.Uuid
   label String
   embedding Unsupported("vector(1536)")?
   createdAt DateTime @default(now()) @map("created_at")
   @@map("vector_probe")
+}
+model ImageCandidate {
+  id String @id @default(uuid()) @db.Uuid
+  sourceItemId String @map("source_item_id") @db.Uuid
+  sourceImageId String @unique @map("source_image_id") @db.Uuid
+  url String
+  alt String?
+  width Int?
+  height Int?
+  mimeType String? @map("mime_type")
+  validationStatus String @default("VALID") @map("validation_status")
+  selectionScore Float @default(0) @map("selection_score")
+  selectedAt DateTime? @map("selected_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  sourceItem SourceItem @relation(fields: [sourceItemId], references: [id], onDelete: Restrict)
+  sourceImage SourceImage @relation(fields: [sourceImageId], references: [id], onDelete: Restrict)
+  @@index([sourceItemId, validationStatus])
+  @@map("image_candidates")
 }
