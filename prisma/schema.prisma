@@ -10,38 +10,15 @@ datasource db {
   extensions = [vector]
 }
 
-enum AuditActorType {
-  HUMAN
-  SYSTEM
-  AI
-}
-
-enum UserStatus {
-  ACTIVE
-  DISABLED
-}
-
-enum ChannelMode {
-  MODERATED
-  AUTO
-}
-
-enum ChannelStatus {
-  ACTIVE
-  PAUSED
-  ARCHIVED
-}
-
-enum ChannelMemberRole {
-  OWNER
-  EDITOR
-  OPERATOR
-  VIEWER
-}
-
-enum CredentialProvider {
-  TELEGRAM_BOT
-}
+enum AuditActorType { HUMAN SYSTEM AI }
+enum UserStatus { ACTIVE DISABLED }
+enum ChannelMode { MODERATED AUTO }
+enum ChannelStatus { ACTIVE PAUSED ARCHIVED }
+enum ChannelMemberRole { OWNER EDITOR OPERATOR VIEWER }
+enum CredentialProvider { TELEGRAM_BOT }
+enum SourceType { RSS WEB }
+enum SourceStatus { ACTIVE PAUSED DISABLED }
+enum SourceHealthStatus { HEALTHY DEGRADED FAILED }
 
 model User {
   id String @id @default(uuid()) @db.Uuid
@@ -56,7 +33,6 @@ model User {
   @@index([status])
   @@map("users")
 }
-
 model Channel {
   id String @id @default(uuid()) @db.Uuid
   telegramId String @unique @map("telegram_id")
@@ -71,10 +47,10 @@ model Channel {
   members ChannelMember[]
   createdBy User @relation("channel_creator", fields: [createdById], references: [id], onDelete: Restrict)
   credential SourceCredentialRef?
+  sources ChannelSource[]
   @@index([status, createdAt])
   @@map("channels")
 }
-
 model ChannelSettings {
   id String @id @default(uuid()) @db.Uuid
   channelId String @unique @map("channel_id") @db.Uuid
@@ -99,7 +75,6 @@ model ChannelSettings {
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   @@map("channel_settings")
 }
-
 model ChannelMember {
   id String @id @default(uuid()) @db.Uuid
   channelId String @map("channel_id") @db.Uuid
@@ -113,7 +88,6 @@ model ChannelMember {
   @@index([userId, role])
   @@map("channel_members")
 }
-
 model SourceCredentialRef {
   id String @id @default(uuid()) @db.Uuid
   provider CredentialProvider
@@ -127,7 +101,83 @@ model SourceCredentialRef {
   @@index([provider])
   @@map("source_credential_refs")
 }
-
+model Source {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  type SourceType
+  url String
+  status SourceStatus @default(ACTIVE)
+  config Json @default("{}")
+  lastCursor String? @map("last_cursor")
+  lastIngestedAt DateTime? @map("last_ingested_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  channels ChannelSource[]
+  items SourceItem[]
+  healthSnapshots SourceHealthSnapshot[]
+  @@unique([type, url])
+  @@index([status, updatedAt])
+  @@map("sources")
+}
+model ChannelSource {
+  id String @id @default(uuid()) @db.Uuid
+  channelId String @map("channel_id") @db.Uuid
+  sourceId String @map("source_id") @db.Uuid
+  priority Int @default(0)
+  enabled Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  @@unique([channelId, sourceId])
+  @@index([channelId, enabled, priority])
+  @@map("channel_sources")
+}
+model SourceItem {
+  id String @id @default(uuid()) @db.Uuid
+  sourceId String @map("source_id") @db.Uuid
+  externalItemId String @map("external_item_id")
+  canonicalUrl String @map("canonical_url")
+  contentHash String @map("content_hash")
+  title String
+  author String?
+  publishedAt DateTime? @map("published_at")
+  text String
+  normalizedText String @map("normalized_text")
+  metadata Json @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  images SourceImage[]
+  @@unique([sourceId, externalItemId])
+  @@unique([sourceId, contentHash])
+  @@index([sourceId, publishedAt])
+  @@index([contentHash])
+  @@map("source_items")
+}
+model SourceImage {
+  id String @id @default(uuid()) @db.Uuid
+  sourceItemId String @map("source_item_id") @db.Uuid
+  url String
+  alt String?
+  createdAt DateTime @default(now()) @map("created_at")
+  sourceItem SourceItem @relation(fields: [sourceItemId], references: [id], onDelete: Cascade)
+  @@unique([sourceItemId, url])
+  @@map("source_images")
+}
+model SourceHealthSnapshot {
+  id String @id @default(uuid()) @db.Uuid
+  sourceId String @map("source_id") @db.Uuid
+  status SourceHealthStatus
+  latencyMs Int? @map("latency_ms")
+  httpStatus Int? @map("http_status")
+  errorCategory String? @map("error_category")
+  errorMessage String? @map("error_message")
+  checkedAt DateTime @default(now()) @map("checked_at")
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  @@index([sourceId, checkedAt])
+  @@map("source_health_snapshots")
+}
 model AuditLog {
   id String @id @default(uuid()) @db.Uuid
   actorType AuditActorType @map("actor_type")
@@ -143,7 +193,6 @@ model AuditLog {
   @@index([correlationId])
   @@map("audit_log")
 }
-
 model VectorProbe {
   id String @id @default(uuid()) @db.Uuid
   label String
