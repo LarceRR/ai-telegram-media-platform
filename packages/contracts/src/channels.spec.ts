@@ -2,9 +2,21 @@ import { channelResponseSchema, channelSettingsSchema } from './channels';
 
 describe('channel contracts', () => {
   const settings = {
-    minInterest: 6, minQuality: 6, minEvidence: 7, minOriginality: 5,
-    researchMaxLevel: 2, forbiddenTopics: [], legalRestrictions: [], blacklist: [],
-    hookStyle: 'restrained', maxLength: 4000, emojiPolicy: false, version: 1,
+    mode: 'MODERATED' as const,
+    timezone: 'UTC',
+    minInterest: 6,
+    minQuality: 6,
+    minEvidence: 7,
+    minOriginality: 5,
+    researchMaxLevel: 2,
+    minLength: null,
+    maxLength: 4000,
+    emojiEnabled: false,
+    forbiddenTopics: [],
+    legalRestrictions: [],
+    sourcePriorities: {},
+    styleConfig: {},
+    version: 1,
   };
 
   it('validates bounded protected and optimizable settings', () => {
@@ -15,9 +27,16 @@ describe('channel contracts', () => {
 
   it('rejects a channel response without a membership role', () => {
     expect(() => channelResponseSchema.parse({
-      id: '00000000-0000-4000-8000-000000000000', telegramChatId: '-1', title: 'News',
-      username: null, language: 'en', mode: 'MODERATED', active: true, settings,
-      telegramCredentialConfigured: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: '00000000-0000-4000-8000-000000000000',
+      telegramId: '-1',
+      title: 'News',
+      username: null,
+      language: 'en',
+      status: 'ACTIVE',
+      settings,
+      telegramCredentialConfigured: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     })).toThrow();
   });
 });
