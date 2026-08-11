@@ -33,6 +33,20 @@ export const idempotencyKeys = {
    */
   ingestionRun: (sourceId: string, channelId: string, windowStart: string) =>
     `ingest-run:${sourceId}:${channelId}:${windowStart}`,
+  /**
+   * One discovery run per channel, source and batch. `batchKey` is derived from
+   * the item ids being handed over, so an ingestion that produced nothing new
+   * cannot spawn a second identical discovery pass.
+   */
+  discovery: (channelId: string, sourceId: string, batchKey: string) =>
+    `discover:${channelId}:${sourceId}:${batchKey}`,
+  /**
+   * Classification is keyed by the memory config version: changing thresholds
+   * or the embedding model is genuinely new work, re-running the same version
+   * is not.
+   */
+  ideaClassification: (channelId: string, ideaId: string, configVersion: string) =>
+    `classify:${channelId}:${ideaId}:${configVersion}`,
   generation: (storyId: string, channelId: string, pipelineConfigVersion: string) =>
     `generate:${storyId}:${channelId}:${pipelineConfigVersion}`,
   publication: (postId: string, channelId: string, scheduledSlot: string) =>
