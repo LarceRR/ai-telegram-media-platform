@@ -24,7 +24,7 @@ export class ModerationService {
         `UPDATE moderation_queue SET status = $1, reason = $2, acted_by = $3, acted_at = CURRENT_TIMESTAMP WHERE post_id = $4 AND channel_id = $5 AND status = 'PENDING' RETURNING id`,
         status, action.reason, actorId, postId, channelId,
       );
-      if (rows.length !== 1) throw new AppError('NOT_FOUND', 'Moderation item is missing or already acted on');
+      if (rows.length !== 1 || !rows[0]) throw new AppError('NOT_FOUND', 'Moderation item is missing or already acted on');
       await tx.auditLog.create({ data: { actorType: 'HUMAN', actorId, action: `MODERATION_${action.action}`, entityType: 'Post', entityId: postId, metadata: { channelId, reason: action.reason, status } } });
       return rows[0];
     });
