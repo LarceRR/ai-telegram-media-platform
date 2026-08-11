@@ -16,10 +16,10 @@ export class AccessService {
 
   async createUser(actorId: string, email: string, displayName: string) {
     const actor = await this.prisma.user.findUnique({ where: { id: actorId }, include: { memberships: true } });
-    const userCount = await this.prisma.user.count();
-    const isFirstAdmin = actor?.status === 'ACTIVE' && userCount === 1 && actor.memberships.length === 0;
-    const isOwner = actor?.status === 'ACTIVE' && actor.memberships.some((membership) => membership.role === 'OWNER');
-    if (!actor || (!isFirstAdmin && !isOwner)) throw new AppError('FORBIDDEN', 'Owner access required');
+    if (!actor || actor.status !== 'ACTIVE') throw new AppError('FORBIDDEN', 'Owner access required');
+    const isFirstAdmin = (await this.prisma.user.count()) === 1 && actor.memberships.length === 0;
+    const isOwner = actor.memberships.some((membership) => membership.role === 'OWNER');
+    if (!isFirstAdmin && !isOwner) throw new AppError('FORBIDDEN', 'Owner access required');
     return this.prisma.user.create({ data: { email, displayName } });
   }
 }
