@@ -260,7 +260,7 @@ model StorySourceItem {
   @@map("story_source_items")
 }
 model StoryRelation {
-  id String @id @default(uuid()) @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
   fromStoryId String @map("from_story_id") @db.Uuid
   toStoryId String @map("to_story_id") @db.Uuid
   type StoryRelationType
