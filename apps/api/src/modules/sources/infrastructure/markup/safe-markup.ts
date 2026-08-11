@@ -6,7 +6,7 @@
  * linearly with indexOf, uses regexes without nested quantifiers, and guards
  * every loop with an explicit iteration budget.
  */
-const MAX_ITERATIONS = 200_000;
+const MAX_ITERATIONS = 2_000_000;
 const DEFAULT_ELEMENT_LIMIT = 200;
 
 /** Content that must never contribute text: script payloads, styling, embeds. */
@@ -74,8 +74,67 @@ export interface MarkupElement {
   inner: string;
 }
 
+interface OpenTagMatch {
+  name: string;
+  start: number;
+  openEnd: number;
+  selfClosing: boolean;
+}
+
 function isNameBoundary(character: string): boolean {
   return character === '' || NAME_BOUNDARIES.has(character);
+}
+
+/**
+ * Walks opening tags for the requested names in document order.
+ *
+ * Per-name cursors are cached so a name that does not occur again is never
+ * rescanned; without that, one indexOf per name per iteration is quadratic on
+ * large documents. When two names start at the same offset the longer one wins,
+ * so `content:encoded` is never shadowed by `content`.
+ */
+function* scanOpenTags(markup: string, names: readonly string[]): Generator<OpenTagMatch> {
+  const lower = markup.toLowerCase();
+  const cursors = new Map<string, number>();
+  let index = 0;
+  let guard = 0;
+
+  const nextFor = (name: string, from: number): number => {
+    const cached = cursors.get(name);
+    if (cached !== undefined && (cached === -1 || cached >= from)) return cached;
+    const found = lower.indexOf(`<${name}`, from);
+    cursors.set(name, found);
+    return found;
+  };
+
+  while (guard < MAX_ITERATIONS) {
+    guard += 1;
+    let start = -1;
+    let matched = '';
+
+    for (const name of names) {
+      const found = nextFor(name, index);
+      if (found === -1) continue;
+      if (start === -1 || found < start || (found === start && name.length > matched.length)) {
+        start = found;
+        matched = name;
+      }
+    }
+    if (start === -1) return;
+
+    const nameEnd = start + matched.length + 1;
+    if (!isNameBoundary(lower.charAt(nameEnd))) {
+      // Advance by one character only: a longer name may start right here.
+      index = start + 1;
+      continue;
+    }
+
+    const openEnd = lower.indexOf('>', nameEnd);
+    if (openEnd === -1) return;
+
+    yield { name: matched, start, openEnd, selfClosing: markup.charAt(openEnd - 1) === '/' };
+    index = openEnd + 1;
+  }
 }
 
 /** Removes a whole element, tags and content, wherever it appears. */
@@ -148,12 +207,32 @@ export function unwrapCdata(markup: string): string {
     if (start === -1) break;
     output += markup.slice(index, start);
     const end = markup.indexOf(']]>', start + 9);
-    if (end === -1) {
-      output += markup.slice(start + 9);
-      return output;
-    }
+    if (end === -1) return output + markup.slice(start + 9);
     output += markup.slice(start + 9, end);
     index = end + 3;
+  }
+  return output + markup.slice(index);
+}
+
+/**
+ * Replaces every tag with a single space.
+ *
+ * Hand-rolled instead of `/<[^>]*>/g`: that pattern backtracks across the whole
+ * remaining string for each unclosed `<`, which is quadratic on input designed
+ * to trigger it.
+ */
+export function stripTags(markup: string): string {
+  let output = '';
+  let index = 0;
+  let guard = 0;
+  while (guard < MAX_ITERATIONS) {
+    guard += 1;
+    const start = markup.indexOf('<', index);
+    if (start === -1) break;
+    const end = markup.indexOf('>', start + 1);
+    if (end === -1) return output + markup.slice(index, start);
+    output += `${markup.slice(index, start)} `;
+    index = end + 1;
   }
   return output + markup.slice(index);
 }
@@ -181,15 +260,12 @@ export function collapseWhitespace(value: string): string {
 
 /** Markup in, plain readable text out. Hidden blocks never contribute. */
 export function cleanText(markup: string): string {
-  const withoutHidden = stripHiddenBlocks(stripComments(unwrapCdata(markup)));
-  return collapseWhitespace(decodeEntities(withoutHidden.replace(/<[^>]*>/g, ' ')));
+  const visible = stripHiddenBlocks(stripComments(unwrapCdata(markup)));
+  return collapseWhitespace(decodeEntities(stripTags(visible)));
 }
 
 export function readAttribute(tag: string, attribute: string): string | undefined {
-  const pattern = new RegExp(
-    `\\b${attribute}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`,
-    'i',
-  );
+  const pattern = new RegExp(`\\b${attribute}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i');
   const match = pattern.exec(tag);
   if (!match) return undefined;
   const raw = match[1] ?? match[2] ?? match[3];
@@ -202,39 +278,20 @@ export function findOpenTags(
   names: readonly string[],
   limit = DEFAULT_ELEMENT_LIMIT,
 ): string[] {
-  const lower = markup.toLowerCase();
   const tags: string[] = [];
-  let index = 0;
-  let guard = 0;
-
-  while (tags.length < limit && guard < MAX_ITERATIONS) {
-    guard += 1;
-    let start = -1;
-    let matched = '';
-    for (const name of names) {
-      const found = lower.indexOf(`<${name}`, index);
-      if (found !== -1 && (start === -1 || found < start)) {
-        start = found;
-        matched = name;
-      }
-    }
-    if (start === -1) break;
-
-    const nameEnd = start + matched.length + 1;
-    if (!isNameBoundary(lower.charAt(nameEnd))) {
-      index = nameEnd;
-      continue;
-    }
-    const openEnd = lower.indexOf('>', nameEnd);
-    if (openEnd === -1) break;
-    tags.push(markup.slice(start, openEnd + 1));
-    index = openEnd + 1;
+  for (const match of scanOpenTags(markup, names)) {
+    if (tags.length >= limit) break;
+    tags.push(markup.slice(match.start, match.openEnd + 1));
   }
-
   return tags;
 }
 
-/** Elements for the given names, in document order, with their inner markup. */
+/**
+ * Elements for the given names, in document order, with their inner markup.
+ *
+ * Same-name nesting is not modelled; none of the elements we read (feed items,
+ * paragraphs, articles) legitimately nest inside themselves.
+ */
 export function extractElements(
   markup: string,
   names: readonly string[],
@@ -242,54 +299,35 @@ export function extractElements(
 ): MarkupElement[] {
   const lower = markup.toLowerCase();
   const elements: MarkupElement[] = [];
-  let index = 0;
-  let guard = 0;
 
-  while (elements.length < limit && guard < MAX_ITERATIONS) {
-    guard += 1;
-    let start = -1;
-    let matched = '';
-    for (const name of names) {
-      const found = lower.indexOf(`<${name}`, index);
-      if (found !== -1 && (start === -1 || found < start)) {
-        start = found;
-        matched = name;
-      }
-    }
-    if (start === -1) break;
+  for (const match of scanOpenTags(markup, names)) {
+    if (elements.length >= limit) break;
 
-    const nameEnd = start + matched.length + 1;
-    if (!isNameBoundary(lower.charAt(nameEnd))) {
-      index = nameEnd;
+    if (match.selfClosing) {
+      elements.push({
+        name: match.name,
+        outer: markup.slice(match.start, match.openEnd + 1),
+        inner: '',
+      });
       continue;
     }
 
-    const openEnd = lower.indexOf('>', nameEnd);
-    if (openEnd === -1) break;
-
-    if (markup.charAt(openEnd - 1) === '/') {
-      elements.push({ name: matched, outer: markup.slice(start, openEnd + 1), inner: '' });
-      index = openEnd + 1;
-      continue;
-    }
-
-    const closeStart = lower.indexOf(`</${matched}`, openEnd);
+    const closeStart = lower.indexOf(`</${match.name}`, match.openEnd);
     if (closeStart === -1) {
       elements.push({
-        name: matched,
-        outer: markup.slice(start),
-        inner: markup.slice(openEnd + 1),
+        name: match.name,
+        outer: markup.slice(match.start),
+        inner: markup.slice(match.openEnd + 1),
       });
       break;
     }
     const closeEnd = lower.indexOf('>', closeStart);
     const end = closeEnd === -1 ? markup.length : closeEnd + 1;
     elements.push({
-      name: matched,
-      outer: markup.slice(start, end),
-      inner: markup.slice(openEnd + 1, closeStart),
+      name: match.name,
+      outer: markup.slice(match.start, end),
+      inner: markup.slice(match.openEnd + 1, closeStart),
     });
-    index = end;
   }
 
   return elements;
