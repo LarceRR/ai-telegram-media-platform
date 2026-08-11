@@ -449,6 +449,22 @@ model EmbeddingIndexMetadata {
   @@map("embedding_index_metadata")
 }
 
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+  actorType AuditActorType @map("actor_type")
+  actorId String? @map("actor_id")
+  action String
+  entityType String @map("entity_type")
+  entityId String @map("entity_id")
+  correlationId String? @map("correlation_id")
+  metadata Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([entityType, entityId, createdAt])
+  @@index([action, createdAt])
+  @@index([correlationId])
+  @@map("audit_log")
+}
+
 model VectorProbe {
   id String @id @default(uuid()) @db.Uuid
   label String
