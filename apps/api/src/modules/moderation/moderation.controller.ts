@@ -6,10 +6,12 @@ export class ModerationController {
   constructor(private readonly moderation: ModerationService) {}
 
   @Get()
-  queue(@Query('channelId') channelId: string) { return this.moderation.queue(channelId); }
+  queue(@Query('channelId') channelId: string, @Headers('x-actor-id') actorId?: string) {
+    return this.moderation.queue(channelId, actorId ?? '');
+  }
 
   @Post(':postId/:action')
-  act(@Param('postId') postId: string, @Param('action') action: string, @Body() body: Record<string, unknown>, @Query('channelId') channelId: string, @Headers('x-actor-id') actorId = 'system') {
-    return this.moderation.act(postId, channelId, actorId, { ...body, action: action.toUpperCase() });
+  act(@Param('postId') postId: string, @Param('action') action: string, @Body() body: Record<string, unknown>, @Query('channelId') channelId: string, @Headers('x-actor-id') actorId?: string) {
+    return this.moderation.act(postId, channelId, actorId ?? '', { ...body, action: action.toUpperCase() });
   }
 }
