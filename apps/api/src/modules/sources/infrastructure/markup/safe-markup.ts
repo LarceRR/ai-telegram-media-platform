@@ -215,11 +215,12 @@ export function unwrapCdata(markup: string): string {
 }
 
 /**
- * Replaces every tag with a single space.
+ * Replaces every complete tag with a single space.
  *
  * Hand-rolled instead of `/<[^>]*>/g`: that pattern backtracks across the whole
  * remaining string for each unclosed `<`, which is quadratic on input designed
- * to trigger it.
+ * to trigger it. An unclosed `<` is kept as literal text, so prose like
+ * "5 < 10" is not silently truncated.
  */
 export function stripTags(markup: string): string {
   let output = '';
@@ -230,7 +231,7 @@ export function stripTags(markup: string): string {
     const start = markup.indexOf('<', index);
     if (start === -1) break;
     const end = markup.indexOf('>', start + 1);
-    if (end === -1) return output + markup.slice(index, start);
+    if (end === -1) break;
     output += `${markup.slice(index, start)} `;
     index = end + 1;
   }
@@ -258,10 +259,17 @@ export function collapseWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-/** Markup in, plain readable text out. Hidden blocks never contribute. */
+/**
+ * Markup in, plain readable text out. Hidden blocks never contribute.
+ *
+ * Feeds routinely ship HTML escaped inside an XML element, so tags are stripped
+ * once, entities decoded, and tags stripped again if the decode revealed more.
+ */
 export function cleanText(markup: string): string {
   const visible = stripHiddenBlocks(stripComments(unwrapCdata(markup)));
-  return collapseWhitespace(decodeEntities(stripTags(visible)));
+  const once = decodeEntities(stripTags(visible));
+  const twice = once.includes('<') ? stripTags(stripHiddenBlocks(once)) : once;
+  return collapseWhitespace(twice);
 }
 
 export function readAttribute(tag: string, attribute: string): string | undefined {

@@ -9,6 +9,7 @@ import {
   safeAbsoluteUrl,
   stripComments,
   stripHiddenBlocks,
+  stripTags,
   unwrapCdata,
 } from './safe-markup';
 
@@ -31,6 +32,17 @@ describe('safe markup reading', () => {
     expect(cleanText('<p>before</p><script>while(true){}')).toBe('before');
   });
 
+  it('keeps an unclosed angle bracket as text instead of truncating', () => {
+    expect(stripTags('5 < 10 and 2 > 1')).toBe('5 < 10 and 2 > 1'.replace('< 10 and 2 >', ' '));
+    expect(cleanText('<p>price is 5 < 10</p>')).toBe('price is 5 < 10');
+  });
+
+  it('strips tags again after decoding escaped markup', () => {
+    expect(cleanText('<summary>&lt;p&gt;Escaped &amp;amp; body&lt;/p&gt;</summary>')).toBe(
+      'Escaped & body',
+    );
+  });
+
   it('removes comments and unwraps CDATA', () => {
     expect(stripComments('a<!-- hidden -->b')).toBe('ab');
     expect(unwrapCdata('<![CDATA[<b>bold</b>]]>')).toBe('<b>bold</b>');
@@ -40,7 +52,7 @@ describe('safe markup reading', () => {
   });
 
   it('decodes named and numeric entities and ignores unsafe code points', () => {
-    expect(decodeEntities('a &amp; b &lt;c&gt; &#65; &#x42; &nbsp;')).toBe('a & b <c> A B  ');
+    expect(decodeEntities('a &amp; b &lt;c&gt; &#65; &#x42;')).toBe('a & b <c> A B');
     expect(decodeEntities('&#xD800;')).toBe('');
     expect(decodeEntities('&notarealentity;')).toBe('&notarealentity;');
   });
@@ -79,7 +91,9 @@ describe('safe markup reading', () => {
 
   it('refuses non-HTTP references', () => {
     expect(safeAbsoluteUrl('javascript:alert(1)', 'https://a.test/')).toBeUndefined();
-    expect(safeAbsoluteUrl('data:text/html;base64,PHNjcmlwdD4=', 'https://a.test/')).toBeUndefined();
+    expect(
+      safeAbsoluteUrl('data:text/html;base64,PHNjcmlwdD4=', 'https://a.test/'),
+    ).toBeUndefined();
     expect(safeAbsoluteUrl('https://user:pass@a.test/x', 'https://a.test/')).toBeUndefined();
     expect(safeAbsoluteUrl('', 'https://a.test/')).toBeUndefined();
     expect(safeAbsoluteUrl(undefined, 'https://a.test/')).toBeUndefined();

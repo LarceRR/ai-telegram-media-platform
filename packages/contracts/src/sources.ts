@@ -5,6 +5,14 @@ export const sourceTypeSchema = z.enum(['RSS', 'WEB']);
 export type SourceType = z.infer<typeof sourceTypeSchema>;
 export const sourceStatusSchema = z.enum(['ACTIVE', 'PAUSED', 'DISABLED']);
 export type SourceStatus = z.infer<typeof sourceStatusSchema>;
+export const sourceHealthStatusSchema = z.enum(['HEALTHY', 'DEGRADED', 'FAILED']);
+export type SourceHealthStatus = z.infer<typeof sourceHealthStatusSchema>;
+
+export const sourceItemImageSchema = z.object({
+  url: z.string().url(),
+  alt: z.string().max(500).optional(),
+});
+export type SourceItemImage = z.infer<typeof sourceItemImageSchema>;
 
 export const sourceItemPayloadSchema = z.object({
   externalItemId: z.string().min(1).max(512),
@@ -13,12 +21,10 @@ export const sourceItemPayloadSchema = z.object({
   author: z.string().max(300).optional(),
   publishedAt: z.string().datetime().optional(),
   text: z.string().min(1).max(500_000),
-  images: z
-    .array(z.object({ url: z.string().url(), alt: z.string().max(500).optional() }))
-    .max(20)
-    .default([]),
+  images: z.array(sourceItemImageSchema).max(20).default([]),
 });
 export type SourceItemPayload = z.infer<typeof sourceItemPayloadSchema>;
+
 export const ingestSourceJobSchema = jobEnvelopeSchema.extend({
   sourceId: z.string().uuid(),
   channelId: z.string().uuid(),
@@ -26,6 +32,23 @@ export const ingestSourceJobSchema = jobEnvelopeSchema.extend({
 });
 export type IngestSourceJob = z.infer<typeof ingestSourceJobSchema>;
 export const JOB_NAMES_SOURCES = { ingestSource: 'sources.ingest' } as const;
+
+/**
+ * Adapter cursor persisted between fetches. Opaque to the application layer,
+ * which stores and replays it verbatim; only the adapter interprets it.
+ *
+ * `etag` and `lastModified` drive conditional GET, `newestPublishedAt` is the
+ * feed watermark, `contentHash` detects an unchanged page.
+ */
+export const httpSourceCursorSchema = z.object({
+  v: z.literal(1),
+  etag: z.string().max(300).optional(),
+  lastModified: z.string().max(200).optional(),
+  newestPublishedAt: z.string().datetime().optional(),
+  contentHash: z.string().length(64).optional(),
+});
+export type HttpSourceCursor = z.infer<typeof httpSourceCursorSchema>;
+
 export const sourceResponseSchema = z.object({
   id: z.string().uuid(),
   channelId: z.string().uuid(),
@@ -35,6 +58,6 @@ export const sourceResponseSchema = z.object({
   status: sourceStatusSchema,
   priority: z.number().int(),
   lastIngestedAt: z.string().datetime().nullable(),
-  lastHealthStatus: z.string().nullable(),
+  lastHealthStatus: sourceHealthStatusSchema.nullable(),
 });
 export type SourceResponse = z.infer<typeof sourceResponseSchema>;
