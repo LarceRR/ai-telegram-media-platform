@@ -10,22 +10,90 @@ datasource db {
   extensions = [vector]
 }
 
-enum AuditActorType { HUMAN SYSTEM AI }
-enum UserStatus { ACTIVE DISABLED }
-enum ChannelMode { MODERATED AUTO }
-enum ChannelStatus { ACTIVE PAUSED ARCHIVED }
-enum ChannelMemberRole { OWNER EDITOR OPERATOR VIEWER }
-enum CredentialProvider { TELEGRAM_BOT }
-enum SourceType { RSS WEB }
-enum SourceStatus { ACTIVE PAUSED DISABLED }
-enum SourceHealthStatus { HEALTHY DEGRADED FAILED }
-enum ContentIdeaStatus { DISCOVERED ANALYZING CANDIDATE WAITING_FOR_EVIDENCE APPROVED PUBLISHED REJECTED ARCHIVED }
-enum StoryStatus { ACTIVE ARCHIVED }
-enum StoryRelationType { RELATED UPDATE CONTINUATION DUPLICATE }
-enum MatchMethod { RULE VECTOR LLM HUMAN }
-enum MemoryDecision { NEW RELATED UPDATE DUPLICATE }
-enum MemoryItemKind { SOURCE_ITEM IDEA STORY PUBLICATION }
-enum MemoryItemState { ACTIVE PENDING ARCHIVED }
+enum AuditActorType {
+  HUMAN
+  SYSTEM
+  AI
+}
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+enum ChannelMode {
+  MODERATED
+  AUTO
+}
+enum ChannelStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+enum ChannelMemberRole {
+  OWNER
+  EDITOR
+  OPERATOR
+  VIEWER
+}
+enum CredentialProvider {
+  TELEGRAM_BOT
+}
+enum SourceType {
+  RSS
+  WEB
+}
+enum SourceStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+enum SourceHealthStatus {
+  HEALTHY
+  DEGRADED
+  FAILED
+}
+enum ContentIdeaStatus {
+  DISCOVERED
+  ANALYZING
+  CANDIDATE
+  WAITING_FOR_EVIDENCE
+  APPROVED
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+enum StoryStatus {
+  ACTIVE
+  ARCHIVED
+}
+enum StoryRelationType {
+  RELATED
+  UPDATE
+  CONTINUATION
+  DUPLICATE
+}
+enum MatchMethod {
+  RULE
+  VECTOR
+  LLM
+  HUMAN
+}
+enum MemoryDecision {
+  NEW
+  RELATED
+  UPDATE
+  DUPLICATE
+}
+enum MemoryItemKind {
+  SOURCE_ITEM
+  IDEA
+  STORY
+  PUBLICATION
+}
+enum MemoryItemState {
+  ACTIVE
+  PENDING
+  ARCHIVED
+}
 
 model User {
   id String @id @default(uuid()) @db.Uuid
