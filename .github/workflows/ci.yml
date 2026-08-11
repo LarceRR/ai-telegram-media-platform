@@ -34,22 +34,22 @@ jobs:
 
       # TODO: switch to `--frozen-lockfile` once pnpm-lock.yaml is committed.
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: bash scripts/ci-run.sh install pnpm install --no-frozen-lockfile
 
       - name: Validate Prisma schema
-        run: pnpm prisma:validate
+        run: bash scripts/ci-run.sh prisma-validate pnpm prisma:validate
 
       - name: Build workspace
-        run: pnpm build
+        run: bash scripts/ci-run.sh build pnpm build
 
       - name: Lint
-        run: pnpm lint
+        run: bash scripts/ci-run.sh lint pnpm lint
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: bash scripts/ci-run.sh typecheck pnpm typecheck
 
       - name: Unit tests
-        run: pnpm test
+        run: bash scripts/ci-run.sh unit-tests pnpm test
 
   integration:
     name: Integration tests (PostgreSQL + pgvector, Redis)
@@ -91,16 +91,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: bash scripts/ci-run.sh install pnpm install --no-frozen-lockfile
 
       - name: Build workspace
-        run: pnpm build
+        run: bash scripts/ci-run.sh build pnpm build
 
       - name: Apply migrations
-        run: pnpm prisma:deploy
+        run: bash scripts/ci-run.sh prisma-deploy pnpm prisma:deploy
 
       - name: Integration tests
-        run: pnpm test:int
+        run: bash scripts/ci-run.sh integration-tests pnpm test:int
 
   security:
     name: Dependency audit
@@ -115,7 +115,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: bash scripts/ci-run.sh install pnpm install --no-frozen-lockfile
 
       # Informational until the dependency policy is set in M8 Hardening.
       # An upstream advisory must not block unrelated work, but it must be visible.
