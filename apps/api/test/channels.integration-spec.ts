@@ -5,6 +5,7 @@ import type { Logger } from '@atmp/shared';
 import request from 'supertest';
 import { AppModule } from '../src/app/app.module';
 import { AllExceptionsFilter } from '../src/common/all-exceptions.filter';
+import { PrismaService } from '../src/infrastructure/prisma/prisma.service';
 
 describe('channels and access (integration)', () => {
   let app: INestApplication;
@@ -19,12 +20,21 @@ describe('channels and access (integration)', () => {
     const logger = { error: jest.fn(), warn: jest.fn() } as unknown as Logger;
     app.useGlobalFilters(new AllExceptionsFilter(logger));
     await app.init();
-    const unique = Date.now();
-    const owner = await request(app.getHttpServer())
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const bootstrap = await request(app.getHttpServer())
       .post('/api/v1/access/bootstrap')
-      .send({ email: `owner-${unique}@test.local`, displayName: 'Owner' })
-      .expect(201);
-    ownerId = owner.body.id;
+      .send({ email: `owner-${unique}@test.local`, displayName: 'Owner' });
+
+    if (bootstrap.status === 201) {
+      ownerId = bootstrap.body.id;
+    } else {
+      const existingOwner = await app
+        .get(PrismaService)
+        .user.findFirst({ where: { memberships: { some: { role: 'OWNER' } } } });
+      if (!existingOwner) throw new Error(`Unable to establish integration owner: ${bootstrap.status}`);
+      ownerId = existingOwner.id;
+    }
+
     const viewer = await request(app.getHttpServer())
       .post('/api/v1/access/users')
       .set('x-actor-id', ownerId)
