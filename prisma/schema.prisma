@@ -60,6 +60,56 @@ enum SourceHealthStatus {
   FAILED
 }
 
+enum ContentIdeaStatus {
+  DISCOVERED
+  ANALYZING
+  CANDIDATE
+  WAITING_FOR_EVIDENCE
+  APPROVED
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+
+enum StoryStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum StoryRelationType {
+  RELATED
+  UPDATE
+  CONTINUATION
+  DUPLICATE
+}
+
+enum MatchMethod {
+  RULE
+  VECTOR
+  LLM
+  HUMAN
+}
+
+enum MemoryDecision {
+  NEW
+  RELATED
+  UPDATE
+  DUPLICATE
+}
+
+enum MemoryItemKind {
+  SOURCE_ITEM
+  IDEA
+  STORY
+  PUBLICATION
+}
+
+enum MemoryItemState {
+  ACTIVE
+  PENDING
+  ARCHIVED
+}
+
 model User {
   id String @id @default(uuid()) @db.Uuid
   email String @unique
@@ -89,6 +139,10 @@ model Channel {
   createdBy User @relation("channel_creator", fields: [createdById], references: [id], onDelete: Restrict)
   credential SourceCredentialRef?
   sources ChannelSource[]
+  ideas ContentIdea[]
+  stories Story[]
+  memoryItems MemoryItem[]
+  memoryDecisions MemoryDecisionLog[]
   @@index([status, createdAt])
   @@map("channels")
 }
@@ -197,6 +251,8 @@ model SourceItem {
   updatedAt DateTime @updatedAt @map("updated_at")
   source Source @relation(fields: [sourceId], references: [id], onDelete: Restrict)
   images SourceImage[]
+  ideas ContentIdea[]
+  storyLinks StorySourceItem[]
   @@unique([sourceId, externalItemId])
   @@unique([sourceId, contentHash])
   @@index([sourceId, publishedAt])
@@ -227,6 +283,170 @@ model SourceHealthSnapshot {
   source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   @@index([sourceId, checkedAt])
   @@map("source_health_snapshots")
+}
+
+/// One candidate per channel and source item. The unique pair is what makes
+/// discovery re-runnable: a replayed batch updates instead of duplicating.
+model ContentIdea {
+  id String @id @default(uuid()) @db.Uuid
+  channelId String @map("channel_id") @db.Uuid
+  sourceItemId String @map("source_item_id") @db.Uuid
+  storyId String? @map("story_id") @db.Uuid
+  status ContentIdeaStatus @default(DISCOVERED)
+  title String
+  summary String
+  normalizedText String @map("normalized_text")
+  contentHash String @map("content_hash")
+  canonicalUrl String @map("canonical_url")
+  entities String[] @default([])
+  topics String[] @default([])
+  rank Int @default(0)
+  decision MemoryDecision @default(NEW)
+  decisionMethod MatchMethod @default(RULE) @map("decision_method")
+  decisionConfidence Float @default(0) @map("decision_confidence")
+  decisionExplanation String? @map("decision_explanation")
+  /// Mandatory for REJECTED, enforced by a CHECK constraint in SQL.
+  rejectionReason String? @map("rejection_reason")
+  classifiedAt DateTime? @map("classified_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sourceItem SourceItem @relation(fields: [sourceItemId], references: [id], onDelete: Restrict)
+  story Story? @relation(fields: [storyId], references: [id], onDelete: SetNull)
+  decisions MemoryDecisionLog[]
+  @@unique([channelId, sourceItemId])
+  @@index([channelId, status, createdAt])
+  @@index([channelId, contentHash])
+  @@index([storyId])
+  @@map("content_ideas")
+}
+
+/// A canonical topic. Holds many items and many posts over time, which is why
+/// a later item can be an UPDATE rather than a duplicate.
+model Story {
+  id String @id @default(uuid()) @db.Uuid
+  channelId String @map("channel_id") @db.Uuid
+  status StoryStatus @default(ACTIVE)
+  title String
+  summary String
+  entities String[] @default([])
+  topics String[] @default([])
+  itemCount Int @default(0) @map("item_count")
+  firstSeenAt DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+  lastPublishedAt DateTime? @map("last_published_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  ideas ContentIdea[]
+  sourceItems StorySourceItem[]
+  outgoingRelations StoryRelation[] @relation("story_relation_from")
+  incomingRelations StoryRelation[] @relation("story_relation_to")
+  @@index([channelId, status, lastSeenAt])
+  @@map("stories")
+}
+
+model StorySourceItem {
+  id String @id @default(uuid()) @db.Uuid
+  storyId String @map("story_id") @db.Uuid
+  sourceItemId String @map("source_item_id") @db.Uuid
+  addedAt DateTime @default(now()) @map("added_at")
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  sourceItem SourceItem @relation(fields: [sourceItemId], references: [id], onDelete: Restrict)
+  @@unique([storyId, sourceItemId])
+  @@index([sourceItemId])
+  @@map("story_source_items")
+}
+
+/// Directed and typed, with the evidence that produced it. Confidence without
+/// a method is unauditable, so both are required.
+model StoryRelation {
+  id String @id @default(uuid()) @db.Uuid
+  fromStoryId String @map("from_story_id") @db.Uuid
+  toStoryId String @map("to_story_id") @db.Uuid
+  type StoryRelationType
+  method MatchMethod
+  confidence Float
+  evidence Json @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  fromStory Story @relation("story_relation_from", fields: [fromStoryId], references: [id], onDelete: Cascade)
+  toStory Story @relation("story_relation_to", fields: [toStoryId], references: [id], onDelete: Cascade)
+  @@unique([fromStoryId, toStoryId, type])
+  @@index([toStoryId])
+  @@map("story_relations")
+}
+
+/// Searchable long-lived representation. `refId` is intentionally not a foreign
+/// key: one table indexes several kinds, and memory must outlive what it points
+/// at so an archived idea can still block a duplicate.
+model MemoryItem {
+  id String @id @default(uuid()) @db.Uuid
+  channelId String @map("channel_id") @db.Uuid
+  kind MemoryItemKind
+  state MemoryItemState @default(ACTIVE)
+  refId String @map("ref_id") @db.Uuid
+  title String
+  normalizedText String @map("normalized_text")
+  contentHash String @map("content_hash")
+  canonicalUrl String? @map("canonical_url")
+  entities String[] @default([])
+  topics String[] @default([])
+  embeddingModel String @map("embedding_model")
+  embeddingDim Int @map("embedding_dim")
+  /// pgvector column. Prisma cannot type it, so reads and writes go through
+  /// reviewed raw SQL in the memory infrastructure layer.
+  embedding Unsupported("vector(1536)")?
+  archivedAt DateTime? @map("archived_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  matchedBy MemoryDecisionLog[] @relation("memory_decision_match")
+  @@unique([channelId, kind, refId])
+  @@index([channelId, state, kind])
+  @@index([channelId, contentHash])
+  @@index([channelId, canonicalUrl])
+  @@map("memory_items")
+}
+
+/// Append-only. Rejected and duplicate candidates are kept with the reason that
+/// produced them, because "why did it not publish" is an operational question.
+model MemoryDecisionLog {
+  id String @id @default(uuid()) @db.Uuid
+  channelId String @map("channel_id") @db.Uuid
+  ideaId String? @map("idea_id") @db.Uuid
+  decision MemoryDecision
+  method MatchMethod
+  confidence Float
+  explanation String
+  matchedMemoryItemId String? @map("matched_memory_item_id") @db.Uuid
+  distance Float?
+  entityOverlap Float? @map("entity_overlap")
+  configVersion String @map("config_version")
+  correlationId String? @map("correlation_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  idea ContentIdea? @relation(fields: [ideaId], references: [id], onDelete: SetNull)
+  matchedMemoryItem MemoryItem? @relation("memory_decision_match", fields: [matchedMemoryItemId], references: [id], onDelete: SetNull)
+  @@index([channelId, createdAt])
+  @@index([ideaId, createdAt])
+  @@index([decision, createdAt])
+  @@map("memory_decisions")
+}
+
+/// Declares the embedding space an index was built for. A model or dimension
+/// change is then a visible migration instead of a silent recall regression.
+model EmbeddingIndexMetadata {
+  id String @id @default(uuid()) @db.Uuid
+  name String @unique
+  model String
+  dimensions Int
+  distance String
+  indexType String @map("index_type")
+  notes String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("embedding_index_metadata")
 }
 
 model AuditLog {
