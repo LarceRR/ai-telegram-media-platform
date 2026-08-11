@@ -152,6 +152,7 @@ model Source {
   type SourceType
   url String
   status SourceStatus @default(ACTIVE)
+  categories String[] @default([])
   config Json @default("{}")
   lastCursor String? @map("last_cursor")
   lastIngestedAt DateTime? @map("last_ingested_at")

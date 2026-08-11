@@ -1,48 +1,22 @@
 # ai-telegram-media-platform
 
-An automated editorial system for Telegram channels:
-**Find -> Understand -> Verify -> Create -> Judge -> Publish -> Measure -> Learn.**
-
-AI is free in how it writes. It is never free to invent facts. Deterministic
-code owns state, rules, safety, idempotency and integrations; specialised AI
-tasks own semantic decisions; a human keeps override and moderation.
-
-Architecture and scope live in the master epic:
-[[EPIC] AI-Powered Automated Telegram Media Platform](https://github.com/LarceRR/ai-telegram-media-platform/issues/3).
+An automated editorial system for Telegram channels: **Find -> Understand -> Verify -> Create -> Judge -> Publish -> Measure -> Learn.**
 
 ## Status
 
-**M1 Channels and access.** Channel CRUD, membership-scoped isolation, baseline
-RBAC, protected versus future-optimizable settings, optimistic concurrency,
-Telegram credential references and audit events are shipped. See
-[docs/m1-channels-access.md](./docs/m1-channels-access.md).
+**M2 Sources and ingestion: complete.** [PR #7](https://github.com/LarceRR/ai-telegram-media-platform/pull/7) delivers RSS/web adapters, hardened SSRF controls, cursoring, normalized persistence, deduplication, health snapshots, per-source failure isolation and the source management UI. ADR-005 is accepted.
+
+M1 Channels and access remains shipped. M3 Content intelligence is next.
 
 ## Stack
 
-TypeScript everywhere. NestJS modular monolith (REST API plus worker mode),
-Next.js admin UI, PostgreSQL + Prisma + pgvector, Redis + BullMQ, Pino, Zod,
-Docker Compose, GitHub Actions.
-
-## Quick start
-
-    cp .env.example .env
-    pnpm install
-    pnpm infra:up
-    pnpm prisma:generate && pnpm prisma:deploy
-    pnpm dev:api    # :3001
-    pnpm dev:worker
-    pnpm dev:web    # :3000
-
-Full runbooks: [docs/m0-foundation.md](./docs/m0-foundation.md) and
-[docs/m1-channels-access.md](./docs/m1-channels-access.md).
+TypeScript everywhere. NestJS modular monolith (REST API plus worker mode), Next.js admin UI, PostgreSQL + Prisma + pgvector, Redis + BullMQ, Pino, Zod.
 
 ## Ground rules
 
-- Domain and application code never imports Prisma, BullMQ, ioredis or provider
-  SDKs. ESLint enforces it.
-- Every job has a deterministic idempotency key. Retries must never duplicate
-  content or double-send a Telegram message.
-- Every machine-consumed AI output is Zod-validated. Invalid output is a typed
-  failure, not a guess.
-- Secrets live in the environment or a secret manager. Never in Git, logs, the
-  frontend bundle or the database.
+- Domain and application code never import provider SDKs directly.
+- Every job has a deterministic idempotency key.
+- Every machine-consumed output is schema-validated.
+- Secrets live in the environment or a secret manager, never in Git, logs, frontend bundles or unnecessary database fields.
+
+See [docs/m2-sources-ingestion.md](./docs/m2-sources-ingestion.md), [docs/adr/0005-source-adapter-architecture-and-ssrf-controls.md](./docs/adr/0005-source-adapter-architecture-and-ssrf-controls.md) and the [M2 PR](https://github.com/LarceRR/ai-telegram-media-platform/pull/7).

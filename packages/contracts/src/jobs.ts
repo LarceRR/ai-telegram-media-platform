@@ -25,6 +25,14 @@ export type HealthProbeJob = z.infer<typeof healthProbeJobSchema>;
  */
 export const idempotencyKeys = {
   ingestion: (sourceId: string, externalItemId: string) => `ingest:${sourceId}:${externalItemId}`,
+  /**
+   * One ingestion run per source, channel and rate-limit window. The window is
+   * what makes a manual re-trigger possible at all: a key without it would
+   * collide with the completed job still held by the queue, and the second
+   * trigger would silently do nothing.
+   */
+  ingestionRun: (sourceId: string, channelId: string, windowStart: string) =>
+    `ingest-run:${sourceId}:${channelId}:${windowStart}`,
   generation: (storyId: string, channelId: string, pipelineConfigVersion: string) =>
     `generate:${storyId}:${channelId}:${pipelineConfigVersion}`,
   publication: (postId: string, channelId: string, scheduledSlot: string) =>
