@@ -5,7 +5,7 @@ import { APP_ENV } from '../../../common/config.module';
 import { AI_HTTP_CLIENT } from './ai.tokens';
 import { AIProviderError, classifyHttpFailure } from '../domain/ai-provider';
 
-export interface AIHttpClient { request(input: RequestInfo | URL, init?: RequestInit): Promise<Response>; }
+export interface AIHttpClient { request(input: string | URL, init?: RequestInit): Promise<Response>; }
 
 @Injectable()
 export class OpenRouterProvider {
@@ -18,29 +18,12 @@ export class OpenRouterProvider {
     let response: Response;
     try {
       response = await this.http.request(`${this.env.OPENROUTER_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${this.env.OPENROUTER_API_KEY}`,
-          'content-type': 'application/json',
-          ...(this.env.OPENROUTER_SITE_URL ? { 'http-referer': this.env.OPENROUTER_SITE_URL } : {}),
-          'x-title': this.env.OPENROUTER_APP_NAME,
-        },
-        body: JSON.stringify({
-          model: request.model,
-          temperature: request.temperature,
-          max_tokens: request.maxTokens,
-          response_format: { type: 'json_object' },
-          messages: [{ role: 'system', content: request.systemPrompt }, { role: 'user', content: request.userPrompt }],
-        }),
+        method: 'POST', headers: { authorization: `Bearer ${this.env.OPENROUTER_API_KEY}`, 'content-type': 'application/json', ...(this.env.OPENROUTER_SITE_URL ? { 'http-referer': this.env.OPENROUTER_SITE_URL } : {}), 'x-title': this.env.OPENROUTER_APP_NAME },
+        body: JSON.stringify({ model: request.model, temperature: request.temperature, max_tokens: request.maxTokens, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: request.systemPrompt }, { role: 'user', content: request.userPrompt }] }),
         signal: AbortSignal.timeout(request.timeoutMs),
       });
-    } catch (error) {
-      throw new AIProviderError('UPSTREAM_UNAVAILABLE', 'OpenRouter request failed', true, { cause: error });
-    }
-    if (!response.ok) {
-      const failure = classifyHttpFailure(response.status);
-      throw new AIProviderError(failure.category, `OpenRouter returned HTTP ${response.status}`, failure.retryable);
-    }
+    } catch (error) { throw new AIProviderError('UPSTREAM_UNAVAILABLE', 'OpenRouter request failed', true, { cause: error }); }
+    if (!response.ok) { const failure = classifyHttpFailure(response.status); throw new AIProviderError(failure.category, `OpenRouter returned HTTP ${response.status}`, failure.retryable); }
     const payload = await response.json() as { model?: string; choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; cost?: number } };
     const content = payload.choices?.[0]?.message?.content;
     if (!content) throw new AIProviderError('INVALID_OUTPUT', 'OpenRouter returned no message content', false);
